@@ -146,6 +146,12 @@ class RealToolsTest {
             assertEquals(r.checks.toString(), Outcome.SUCCESS, r.outcome)
         }
         expect.append("edit.img\t1\texfat\tAfter\n").append("edit.img\t2\tvfat\tNEW\n").append("edit.img\t3\tswap\tlate\n")
+        // ext4, made by the app's own formatter.
+        build(File(dir, "ext4.img"), 1200) { p, m ->
+            p.add(Op.NewTable(TableKind.GPT))
+            p.add(Op.Create(m, 1199 * m - 1, FsType.EXT4, "Raven ext4", name = "linux"))
+        }
+        expect.append("ext4.img\t1\text4\tRaven ext4\n")
         File(dir, "expect.tsv").writeText(expect.toString())
     }
 }

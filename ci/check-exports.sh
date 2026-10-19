@@ -30,6 +30,7 @@ attach gpt.img
 attach mbr.img
 attach edit.img
 attach gpt4k.img 4096
+attach ext4.img
 lsblk -o NAME,SIZE,PHY-SEC,LOG-SEC,FSTYPE,LABEL,PARTLABEL,PARTTYPE "${loops[@]}" || true
 
 # Labels and types as blkid sees them, against what the app meant to make.
@@ -41,6 +42,7 @@ while IFS=$'\t' read -r img part type label; do
   case "$type" in
     vfat) out=$(sudo fsck.vfat -n "$dev" 2>&1); [ $? -eq 0 ] && ok "$img#$part: fsck.vfat clean" || bad "$img#$part: fsck.vfat: $out" ;;
     exfat) out=$(sudo fsck.exfat -n "$dev" 2>&1); [ $? -eq 0 ] && ok "$img#$part: fsck.exfat clean" || bad "$img#$part: fsck.exfat: $out" ;;
+    ext4) out=$(sudo e2fsck -fn "$dev" 2>&1); [ $? -eq 0 ] && ok "$img#$part: e2fsck clean" || bad "$img#$part: e2fsck: $out" ;;
     swap) sudo swaplabel "$dev" | grep -q "LABEL: $label" && ok "$img#$part: swaplabel agrees" || bad "$img#$part: swaplabel disagrees" ;;
   esac
 done < expect.tsv
@@ -52,7 +54,7 @@ done < expect.tsv
 
 # Mount, write, unmount, check again: the filesystems work, not just parse.
 mnt=$(mktemp -d)
-for spec in "gpt.img 1" "gpt.img 2" "mbr.img 1" "mbr.img 2" "gpt4k.img 1" "gpt4k.img 2" "edit.img 1" "edit.img 2"; do
+for spec in "gpt.img 1" "gpt.img 2" "mbr.img 1" "mbr.img 2" "gpt4k.img 1" "gpt4k.img 2" "edit.img 1" "edit.img 2" "ext4.img 1"; do
   set -- $spec
   dev="${loops[$1]}p$2"
   if sudo mount "$dev" "$mnt"; then
@@ -66,6 +68,7 @@ for spec in "gpt.img 1" "gpt.img 2" "mbr.img 1" "mbr.img 2" "gpt4k.img 1" "gpt4k
     [ "$sum1" = "$sum2" ] && ok "$1#$2: mounted, wrote 3 MB and read it back" || bad "$1#$2: data changed after remount"
     t=$(sudo blkid -p -s TYPE -o value "$dev")
     if [ "$t" = vfat ]; then out=$(sudo fsck.vfat -n "$dev" 2>&1) || bad "$1#$2: fsck.vfat after writing: $out"; fi
+    if [ "$t" = ext4 ]; then out=$(sudo e2fsck -fn "$dev" 2>&1) || bad "$1#$2: e2fsck after writing: $out"; fi
     if [ "$t" = exfat ]; then out=$(sudo fsck.exfat -n "$dev" 2>&1) || bad "$1#$2: fsck.exfat after writing: $out"; fi
   else
     bad "$1#$2: the kernel wouldn't mount it"

@@ -86,7 +86,7 @@ fun DashboardScreen(m: AppModel) {
         }
         Gap(10)
         Txt(
-            "Android manages these. Raven shows their details; changing them needs root, which arrives in a later version.",
+            "Android manages these; they're shown for reference. Raven works on external drives plugged in over USB.",
             Raven.small,
         )
         Gap(20)

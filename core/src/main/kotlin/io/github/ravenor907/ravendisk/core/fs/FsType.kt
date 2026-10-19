@@ -58,13 +58,13 @@ sealed class Support {
  * that isn't [Support.Native] here has no button that pretends otherwise.
  */
 object FsSupport {
-    private val nativeCreate = setOf(FsType.FAT32, FsType.EXFAT, FsType.SWAP)
+    private val nativeCreate = setOf(FsType.FAT32, FsType.EXFAT, FsType.EXT4, FsType.SWAP)
     private val nativeLabel = setOf(FsType.FAT12, FsType.FAT16, FsType.FAT32, FsType.EXFAT, FsType.EXT2, FsType.EXT3, FsType.EXT4, FsType.SWAP)
     private val inspectable = FsType.entries.toSet()
 
     /** Root tools that Android itself ships (or that are commonly present) for each filesystem. */
     private val createTools = mapOf(
-        FsType.EXT4 to "mke2fs", FsType.EXT3 to "mke2fs", FsType.EXT2 to "mke2fs", FsType.F2FS to "make_f2fs",
+        FsType.EXT3 to "mke2fs", FsType.EXT2 to "mke2fs", FsType.F2FS to "make_f2fs",
         FsType.FAT16 to "newfs_msdos", FsType.NTFS to "mkntfs", FsType.BTRFS to "mkfs.btrfs", FsType.XFS to "mkfs.xfs",
         FsType.UDF to "mkudffs",
     )
@@ -99,20 +99,21 @@ object FsSupport {
     }
 
     /** Filesystems the app can create itself, in menu order. */
-    val creatable: List<FsType> = listOf(FsType.EXFAT, FsType.FAT32, FsType.SWAP)
+    val creatable: List<FsType> = listOf(FsType.EXFAT, FsType.FAT32, FsType.EXT4, FsType.SWAP)
 
     /** Smallest partition each native format accepts, in bytes. */
     fun minBytes(fs: FsType): Long = when (fs) {
         FsType.FAT32 -> 33L * 1024 * 1024 // FAT32 needs at least 65525 clusters
         FsType.EXFAT -> 1L * 1024 * 1024
         FsType.SWAP -> 40L * 1024
+        FsType.EXT4 -> 4L * 1024 * 1024
         else -> 1L * 1024 * 1024
     }
 
     /** Largest partition each native format accepts, in bytes. */
     fun maxBytes(fs: FsType): Long = when (fs) {
         FsType.FAT32 -> 2L * 1024 * 1024 * 1024 * 1024 // 2 TiB with 512-byte sectors (32-bit sector count)
-        FsType.SWAP -> Long.MAX_VALUE
+        FsType.EXT4 -> 16L * 1024 * 1024 * 1024 * 1024 - 4096
         else -> Long.MAX_VALUE
     }
 
@@ -129,6 +130,10 @@ object FsSupport {
             }
             FsType.EXFAT -> {
                 ExFat.layout(blockSize, 0, blocks)
+                null
+            }
+            FsType.EXT4 -> {
+                Ext4.layout(blockSize, blocks)
                 null
             }
             FsType.SWAP -> if (blocks * blockSize / Swap.PAGE < 10) "The partition is too small for swap" else null

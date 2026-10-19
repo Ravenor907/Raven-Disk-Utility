@@ -110,7 +110,8 @@ behind Bulk-Only or UAS. The bridge decides what else passes through.
 | | Stock Android | Rooted Android | Linux handheld |
 |---|---|---|---|
 | USB drives (Bulk-Only): partition, format FAT32/exFAT/swap, label, erase | Yes (0.1) | Yes (0.1) | Use native tools |
-| USB drives: ext4/F2FS create, check, resize | No | Planned (root tools) | Native |
+| USB drives: ext4 create | Yes (0.2) | Yes | Native |
+| USB drives: check, repair, resize with data | Planned (in-app) | Planned | Native |
 | UAS-only enclosures | No | Planned (root, /dev/block) | Native |
 | SD card slot | Info only | Planned (root) | Native |
 | Phone's internal storage | Info only | Read-only by policy | n/a |

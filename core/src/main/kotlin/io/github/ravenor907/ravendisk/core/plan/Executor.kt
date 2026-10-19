@@ -1,5 +1,6 @@
 package io.github.ravenor907.ravendisk.core.plan
 
+import io.github.ravenor907.ravendisk.core.fs.Ext4
 import io.github.ravenor907.ravendisk.core.fs.ExFat
 import io.github.ravenor907.ravendisk.core.fs.Fat32
 import io.github.ravenor907.ravendisk.core.fs.FsSupport
@@ -245,6 +246,10 @@ class Executor(
             FsType.EXFAT -> {
                 val l = ExFat.format(dev, p.firstLba, p.sectors, label, progress = progress())
                 "${l.clusterCount} clusters of ${l.clusterBytes / 1024} KiB"
+            }
+            FsType.EXT4 -> {
+                val l = Ext4.format(dev, p.firstLba, p.sectors, label, progress = progress())
+                "${l.groups} block group(s), ${l.inodes} inodes, ${l.journalBlocks * 4 / 1024} MiB journal"
             }
             FsType.SWAP -> {
                 val pages = Swap.format(dev, p.firstLba, p.sectors, label)

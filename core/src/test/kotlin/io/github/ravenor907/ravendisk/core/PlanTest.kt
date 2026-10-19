@@ -97,7 +97,7 @@ class PlanTest {
         val v = p.current.volume(2)!!
         assertEquals(VolumeChange.FORMATTED, v.change)
         assertEquals(PartitionTypes.MS_BASIC_DATA, v.partition.typeGuid)
-        refused(p, Op.Format(2, FsType.EXT4), "isn't available")
+        refused(p, Op.Format(2, FsType.NTFS), "isn't available")
         refused(p, Op.Format(2, FsType.FAT32, "bad/label"), "can't contain")
     }
 

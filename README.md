@@ -18,8 +18,8 @@ phone, the app says why.
   alignment, free space and health, on a map you can tap.
 - **Partition.** New GPT or MBR tables, create, delete, resize (empty partitions), rename, change
   types, GPT flags, the MBR active flag.
-- **Format.** exFAT, FAT32 and Linux swap, written by the app itself and checked against
-  `fsck` and the Linux kernel on every build.
+- **Format.** exFAT, FAT32, ext4 and Linux swap, written by the app itself and checked against
+  `fsck`, `e2fsck` and the Linux kernel on every build.
 - **Relabel** FAT, exFAT, ext2/3/4 and swap in place.
 - **Erase** by overwriting with zeros, or discard (TRIM) on drives that support it, with honest
   notes on what each does and doesn't guarantee.
@@ -28,7 +28,7 @@ phone, the app says why.
 - **Review first.** Changes queue up. You see before and after, what data goes away, and confirm.
   Then the app checks it's still the same drive, writes, and reads everything back.
 
-It also reads (but doesn't create yet) NTFS, ext4, Btrfs, XFS, F2FS, UDF, LUKS, BitLocker and a
+It also reads (but doesn't create yet) NTFS, Btrfs, XFS, F2FS, UDF, LUKS, BitLocker and a
 few others, and shows the phone's own storage, SD card and Android-mounted drives.
 
 ## Get it
@@ -42,15 +42,18 @@ it's the same as pulling the drive out from under Android).
 Want to look around first? **Capabilities → Show simulated drives** gives you three made-up drives
 in memory to try everything on.
 
-## What works where
+## Scope
 
-| | Without root | With root |
-|---|---|---|
-| USB drives, SSDs, HDDs, card readers | Everything above | Same |
-| UAS-only enclosures | Listed, not usable (Android limit) | Planned |
-| SD card slot, internal storage | Info only | SD card planned; internal stays read-only |
-| ext4 / F2FS create, any fsck, resizing with data | Not yet | Planned via Android's own tools |
-| NVMe health over USB | Not yet | Not yet |
+Raven is for external drives: USB sticks, SSDs and hard drives in USB enclosures, and card readers.
+No root, ever. Still to come:
+
+- Checking and repairing filesystems.
+- Resizing and moving partitions that hold data.
+- Creating NTFS.
+- NVMe health through USB-NVMe enclosures.
+
+A few fast enclosures only speak UAS, which Android doesn't let apps use at all; they're listed
+but can't be opened. Most enclosures fall back to the mode that works.
 
 The long version, with the why: [docs/FEASIBILITY.md](docs/FEASIBILITY.md).
 

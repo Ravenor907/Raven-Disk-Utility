@@ -65,7 +65,7 @@ fun VolumeScreen(m: AppModel, id: String) {
         Gap(12)
         Banner(
             if (v.primary) "This is the phone's own storage. Raven never writes to it: its partitions belong to Android, and changing them can make the phone unbootable."
-            else "Android has this volume mounted. To partition or format it with Raven, eject it in Settings first. USB drives then appear under USB drives; SD card slots need root (planned).",
+            else "Android has this volume mounted. To partition or format a USB drive with Raven, eject it in Settings first and it appears under USB drives.",
             Tone.INFO,
         )
         Gap(12)
@@ -105,7 +105,7 @@ fun CapabilitiesScreen(m: AppModel) {
             val rootLine = when (val r = m.root) {
                 RootCheck.NotChecked -> if (p?.suBinaries?.isNotEmpty() == true) "An su binary is present. Tap below to ask for root." else "No su binary found."
                 RootCheck.Checking -> "Waiting for the root prompt…"
-                is RootCheck.Granted -> "Root granted (${r.detail}). Root-only operations (SD card slots, ext4/F2FS tools) arrive in a later version; nothing uses root yet."
+                is RootCheck.Granted -> "Root granted (${r.detail}). Raven doesn't need it for external drives and doesn't use it."
                 is RootCheck.Denied -> "Root not available: ${r.reason}"
             }
             PathRow("Root", m.root is RootCheck.Granted, rootLine)
@@ -147,7 +147,7 @@ fun CapabilitiesScreen(m: AppModel) {
                 }
             }
             Gap(8)
-            Txt("✓ built into Raven and available now. \"root\" needs the phone's own tools through root, planned for a later version. Every filesystem in the list can be inspected (type, label, ID, size).", Raven.small)
+            Txt("✓ built into Raven and available now. \"root\" means only the phone's own system tools can do it today; Raven's own version is on the way. Every filesystem in the list can be inspected (type, label, ID, size).", Raven.small)
         }
         SectionTitle("Try it safely")
         Panel {

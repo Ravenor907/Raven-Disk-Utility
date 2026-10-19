@@ -121,7 +121,7 @@ class FsTest {
         // Native create must match what the executor implements.
         for (fs in FsType.entries) {
             val native = FsSupport.of(fs, FsOp.CREATE) == Support.Native
-            assertEquals("create ${fs.label}", fs in setOf(FsType.FAT32, FsType.EXFAT, FsType.SWAP), native)
+            assertEquals("create ${fs.label}", fs in setOf(FsType.FAT32, FsType.EXFAT, FsType.EXT4, FsType.SWAP), native)
             // No checker or repairer is built in yet.
             assertTrue(FsSupport.of(fs, FsOp.CHECK) != Support.Native)
             assertTrue(FsSupport.of(fs, FsOp.RESIZE) != Support.Native)
@@ -160,6 +160,34 @@ class FsTest {
             run(fsck!!, "-fn", img.path)
         } finally {
             img.delete()
+        }
+    }
+
+    @Test
+    fun ext4FormatAndProbe() {
+        val d = SparseDisk(blockCount = 8L * 1024 * 1024) // 4 GiB
+        val l = io.github.ravenor907.ravendisk.core.fs.Ext4.format(d, 2048, d.blockCount - 2048, "Linux Data")
+        val info = Probe.probe(d, 2048, d.blockCount - 2048)!!
+        assertEquals(FsType.EXT4, info.type)
+        assertEquals("Linux Data", info.label)
+        assertEquals(l.blocks * 4096, info.sizeBytes)
+    }
+
+    /** ext4 made by the app, checked by the real e2fsck at several sizes (one group, many groups, a short last group). */
+    @Test
+    fun ext4PassesE2fsck() {
+        val fsck = listOf("/sbin/e2fsck", "/usr/sbin/e2fsck").firstOrNull { File(it).canExecute() }
+        assumeTrue(fsck != null)
+        for (mib in listOf(8L, 100L, 300L, 1000L, 4100L)) {
+            val img = File.createTempFile("raven-ext4-$mib", ".img")
+            try {
+                FileDisk(img, mib * 2048).use { d ->
+                    io.github.ravenor907.ravendisk.core.fs.Ext4.format(d, 0, d.blockCount, "test$mib")
+                }
+                run(fsck!!, "-fn", img.path)
+            } finally {
+                img.delete()
+            }
         }
     }
 

@@ -32,6 +32,7 @@ import io.github.ravenor907.ravendisk.core.util.Units
 private fun fsDetail(fs: FsType?): String = when (fs) {
     FsType.EXFAT -> "Works on Windows, macOS, Linux, Android and consoles; no 4 GB file limit"
     FsType.FAT32 -> "Most compatible (firmware, EFI, old devices); files up to 4 GB"
+    FsType.EXT4 -> "For Linux: Steam Deck, Bazzite, SteamOS game drives. Windows and macOS can't read it"
     FsType.SWAP -> "Swap space for a Linux system"
     null -> "Leave it empty; format it later or from another system"
     else -> ""
@@ -87,7 +88,7 @@ private fun FsChoices(selected: FsType?, allowNone: Boolean, problemFor: (FsType
         }
     }
     Gap(6)
-    Txt("ext4, NTFS, Btrfs, XFS and F2FS need tools that aren't bundled yet; see Capabilities.", Raven.small)
+    Txt("NTFS, Btrfs, XFS and F2FS can be read but not created yet; see Capabilities.", Raven.small)
 }
 
 @Composable
