@@ -58,19 +58,18 @@ fi
 # A GPT disk partitioned by sgdisk, with filesystems made by the tools placed inside it.
 if have sgdisk && have mkfs.vfat && have mkfs.ext4; then
   img multi.img 512M
-  sgdisk -q -o -n 1:1MiB:+100MiB -t 1:ef00 -c 1:"EFI system" -n 2:0:+200MiB -t 2:8300 -c 2:root -n 3:0:0 -t 3:0700 multi.img
-  put() { # part file
-    local start
-    start=$(sgdisk -i "$1" multi.img | sed -n 's/^First sector: \([0-9]*\).*/\1/p')
-    dd if="$2" of=multi.img bs=512 seek="$start" conv=notrunc status=none
+  # Explicit sectors: 1 MiB aligned, last partition to the end of the usable area.
+  sgdisk -q -o -n 1:2048:206847 -t 1:ef00 -c 1:"EFI system" -n 2:206848:616447 -t 2:8300 -c 2:root \
+    -n 3:616448:1048542 -t 3:0700 multi.img
+  put() { # part file start-sector
+    dd if="$2" of=multi.img bs=512 seek="$3" conv=notrunc status=none
     rm -f "$2"
-    record multi.img "$1" $((start * 512))
+    record multi.img "$1" $(($3 * 512))
   }
-  img p1 100M; mkfs.vfat -F 32 -n ESP p1 >/dev/null; put 1 p1
-  img p2 200M; mkfs.ext4 -q -F -L root p2; put 2 p2
+  img p1 $((204800 * 512)); mkfs.vfat -F 32 -n ESP p1 >/dev/null; put 1 p1 2048
+  img p2 $((409600 * 512)); mkfs.ext4 -q -F -L root p2; put 2 p2 206848
   if have mkfs.exfat; then
-    size=$(( $(sgdisk -i 3 multi.img | sed -n 's/^Partition size: \([0-9]*\).*/\1/p') * 512 ))
-    img p3 "$size"; mkfs.exfat -L Shared p3 >/dev/null; put 3 p3
+    img p3 $((432095 * 512)); mkfs.exfat -L Shared p3 >/dev/null; put 3 p3 616448
   fi
   # An MBR disk from sfdisk.
   if have sfdisk; then
