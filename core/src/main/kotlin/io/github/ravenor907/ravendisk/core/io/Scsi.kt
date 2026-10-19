@@ -107,9 +107,12 @@ class BulkOnly(val t: UsbTransport, val lun: Int = 0) {
                 val n = minOf(transferSize, length - done)
                 val r = if (dataIn != null) t.bulkIn(dataIn, offset + done, n, timeoutMs) else t.bulkOut(dataOut!!, offset + done, n, timeoutMs)
                 if (r < 0) {
-                    // The drive stalled the data phase (allowed by the spec when it has less data than
-                    // asked for, or refuses the data). Clear the stall; the status still follows.
-                    t.clearHalt(dataIn != null)
+                    // Sending: the drive choked on the data (some sticks do on big writes). Reset
+                    // and let the caller retry in smaller pieces.
+                    if (dataIn == null) fail("A USB transfer failed")
+                    // Receiving: the drive stalled because it had less to say than asked for
+                    // (allowed by the spec). Clear the stall; the status still follows.
+                    t.clearHalt(true)
                     break
                 }
                 done += r
