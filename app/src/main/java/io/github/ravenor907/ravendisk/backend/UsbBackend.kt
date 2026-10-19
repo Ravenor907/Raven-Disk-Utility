@@ -160,10 +160,24 @@ class UsbBackend(private val context: Context) {
         // Handheld Forge does), then progressively more forceful ones, each on a fresh connection.
         val tried = ArrayList<String>()
         for (mode in OpenMode.entries) {
-            val conn = manager?.openDevice(d) ?: throw IOException("Android wouldn't open the drive. Unplug it and try again.")
-            if (!conn.claimInterface(intf, true)) {
+            // A failed attempt can make the drive reconnect; give Android a moment and look it up again.
+            var dev = d
+            var conn: UsbDeviceConnection? = null
+            for (wait in 0 until 6) {
+                dev = manager?.deviceList?.values?.firstOrNull { it.vendorId == d.vendorId && it.productId == d.productId } ?: dev
+                conn = manager?.openDevice(dev)
+                if (conn != null) break
+                Thread.sleep(500)
+            }
+            if (conn == null) {
+                tried.add("${mode.label}: Android wouldn't open the device (openDevice returned nothing; permission ${manager?.hasPermission(dev)})")
+                continue
+            }
+            val claimed = conn.claimInterface(intf, true)
+            if (!claimed) {
+                tried.add("${mode.label}: Android refused to hand the drive's interface to the app (claimInterface failed; another app or the system holds it)")
                 conn.close()
-                throw IOException("The drive is busy. Eject it in Android's storage settings, then try again.")
+                continue
             }
             if (mode != OpenMode.PLAIN) {
                 // Select the Bulk-Only setting (USB 3 sticks may be left in UAS mode) and clear stalls.
@@ -191,12 +205,14 @@ class UsbBackend(private val context: Context) {
                 val luns = listOf(first) + (1..max).map { lun -> openLun(t, lun) }
                 return UsbConnection(d, t, luns, linkSpeed(outEp.maxPacketSize))
             } catch (e: IOException) {
-                tried.add("${mode.label}: ${e.message} [${t.lastResult}]")
+                tried.add("${mode.label}: ${e.message} [last USB transfer: ${t.lastResult}]")
                 t.close()
+                Thread.sleep(300)
             }
         }
         val first = tried.firstOrNull() ?: ""
         val why = when {
+            tried.all { "openDevice" in it || "claimInterface" in it } -> "Android didn't let the app connect to the drive at all."
             "-> -1" in first && first.contains("out 31") -> "The drive refused the very first command. Android's USB link to it isn't working for apps on this phone/drive combination."
             "-> -1" in first -> "The drive stopped responding partway through a command."
             else -> "The drive answered, but not the way a USB drive should."
