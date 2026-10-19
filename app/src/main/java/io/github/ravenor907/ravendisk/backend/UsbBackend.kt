@@ -26,15 +26,52 @@ class AndroidUsbTransport(
     private val intf: UsbInterface,
     private val inEp: UsbEndpoint,
     private val outEp: UsbEndpoint,
+    /** Send transfers through UsbRequest instead of bulkTransfer (some phones only like one). */
+    private val useRequests: Boolean = false,
 ) : UsbTransport, Closeable {
+    /** What the last bulk transfer returned, for error reports. */
+    @Volatile
+    var lastResult: String = "none"
+        private set
+
+    private fun viaRequest(ep: UsbEndpoint, data: ByteArray, offset: Int, length: Int, timeoutMs: Int, input: Boolean): Int {
+        val r = android.hardware.usb.UsbRequest()
+        if (!r.initialize(conn, ep)) return -1
+        try {
+            val buf = java.nio.ByteBuffer.allocate(length)
+            if (!input) buf.put(data, offset, length).flip()
+            if (!r.queue(buf)) return -1
+            val done = try {
+                conn.requestWait(timeoutMs.toLong())
+            } catch (e: java.util.concurrent.TimeoutException) {
+                null
+            } ?: return -1
+            if (done !== r) return -1
+            val n = if (input) buf.position() else length
+            if (input) {
+                buf.flip()
+                buf.get(data, offset, n)
+            }
+            return n
+        } finally {
+            r.close()
+        }
+    }
+
     // Before Android 9 a single bulk transfer was capped at 16 KiB.
     override val maxTransfer: Int = if (Build.VERSION.SDK_INT >= 28) 64 * 1024 else 16 * 1024
 
-    override fun bulkOut(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int =
-        conn.bulkTransfer(outEp, data, offset, length, timeoutMs)
+    override fun bulkOut(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
+        val r = if (useRequests) viaRequest(outEp, data, offset, length, timeoutMs, false) else conn.bulkTransfer(outEp, data, offset, length, timeoutMs)
+        lastResult = "out $length -> $r"
+        return r
+    }
 
-    override fun bulkIn(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int =
-        conn.bulkTransfer(inEp, data, offset, length, timeoutMs)
+    override fun bulkIn(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
+        val r = if (useRequests) viaRequest(inEp, data, offset, length, timeoutMs, true) else conn.bulkTransfer(inEp, data, offset, length, timeoutMs)
+        lastResult = "in $length -> $r"
+        return r
+    }
 
     override fun resetRecovery() {
         // Bulk-Only Mass Storage Reset, then CLEAR_FEATURE(ENDPOINT_HALT) on both pipes.
@@ -42,9 +79,6 @@ class AndroidUsbTransport(
         conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 5000)
         conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 5000)
     }
-
-    /** USB details for error reports: IDs, interface and packet size. */
-    fun describe(): String = "interface ${intf.id} alt ${intf.alternateSetting}, ${outEp.maxPacketSize}-byte packets"
 
     override fun maxLun(): Int {
         val b = ByteArray(1)
@@ -60,6 +94,9 @@ class AndroidUsbTransport(
         }
     }
 }
+
+/** Opening failed; [details] is a full report for troubleshooting. */
+class UsbOpenException(msg: String, val details: String) : IOException(msg)
 
 /** One LUN of an open USB device: a disk, an empty slot, or an error. */
 sealed class Lun {
@@ -119,48 +156,75 @@ class UsbBackend(private val context: Context) {
             if (ep.direction == UsbConstants.USB_DIR_IN) inEp = ep else outEp = ep
         }
         if (inEp == null || outEp == null) throw IOException("The drive has no bulk endpoints")
-        val conn = manager?.openDevice(d) ?: throw IOException("Android wouldn't open the drive. Unplug it and try again.")
-        if (!conn.claimInterface(intf, true)) {
-            conn.close()
-            throw IOException("The drive is busy. Eject it in Android's storage settings, then try again.")
-        }
-        // Always select the Bulk-Only setting: many USB 3 sticks are left in their UAS setting
-        // by Android's driver, and then every bulk transfer fails. Then clear any stalled pipes.
-        conn.setInterface(intf)
-        conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 2000)
-        conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 2000)
-        val t = AndroidUsbTransport(conn, intf, inEp, outEp)
-        try {
-            val max = try {
-                t.maxLun().coerceIn(0, 7)
-            } catch (e: Exception) {
-                0
+        // Different phones and drives want different handling. Try the gentlest way first (what
+        // Handheld Forge does), then progressively more forceful ones, each on a fresh connection.
+        val tried = ArrayList<String>()
+        for (mode in OpenMode.entries) {
+            val conn = manager?.openDevice(d) ?: throw IOException("Android wouldn't open the drive. Unplug it and try again.")
+            if (!conn.claimInterface(intf, true)) {
+                conn.close()
+                throw IOException("The drive is busy. Eject it in Android's storage settings, then try again.")
             }
-            val luns = (0..max).map { lun -> openLun(d, t, lun) }
-            return UsbConnection(d, t, luns, linkSpeed(outEp.maxPacketSize))
-        } catch (e: Exception) {
-            t.close()
-            throw e
+            if (mode != OpenMode.PLAIN) {
+                // Select the Bulk-Only setting (USB 3 sticks may be left in UAS mode) and clear stalls.
+                conn.setInterface(intf)
+                conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 2000)
+                conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 2000)
+            }
+            val t = AndroidUsbTransport(conn, intf, inEp, outEp, useRequests = mode == OpenMode.ASYNC)
+            if (mode == OpenMode.RESET || mode == OpenMode.ASYNC) {
+                t.resetRecovery()
+                Thread.sleep(500)
+            }
+            try {
+                val first = try {
+                    Lun.Ready(0, ScsiDisk(BulkOnly(t, 0)).init())
+                } catch (e: NoMediumException) {
+                    Lun.Empty(0)
+                }
+                // Only now ask for more LUNs: some drives misbehave if asked before their first command.
+                val max = try {
+                    t.maxLun().coerceIn(0, 7)
+                } catch (e: Exception) {
+                    0
+                }
+                val luns = listOf(first) + (1..max).map { lun -> openLun(t, lun) }
+                return UsbConnection(d, t, luns, linkSpeed(outEp.maxPacketSize))
+            } catch (e: IOException) {
+                tried.add("${mode.label}: ${e.message} [${t.lastResult}]")
+                t.close()
+            }
         }
+        val first = tried.firstOrNull() ?: ""
+        val why = when {
+            "-> -1" in first && first.contains("out 31") -> "The drive refused the very first command. Android's USB link to it isn't working for apps on this phone/drive combination."
+            "-> -1" in first -> "The drive stopped responding partway through a command."
+            else -> "The drive answered, but not the way a USB drive should."
+        }
+        throw UsbOpenException(
+            why,
+            buildString {
+                appendLine("What was tried, in order (each on a fresh connection):")
+                tried.forEachIndexed { i, x -> appendLine("  ${i + 1}. $x") }
+                appendLine()
+                append(describe(d))
+            },
+        )
     }
 
-    /** Tries a LUN a few ways before giving up: as is, after a mass-storage reset, after a pause. */
-    private fun openLun(d: UsbDevice, t: AndroidUsbTransport, lun: Int): Lun {
-        var last: IOException? = null
-        for (attempt in 0 until 3) {
-            try {
-                if (attempt > 0) {
-                    t.resetRecovery()
-                    Thread.sleep(400L * attempt)
-                }
-                return Lun.Ready(lun, ScsiDisk(BulkOnly(t, lun)).init())
-            } catch (e: NoMediumException) {
-                return Lun.Empty(lun)
-            } catch (e: IOException) {
-                last = e
-            }
-        }
-        return Lun.Failed(lun, (last?.message ?: "Couldn't read the drive") + " (USB %04x:%04x, ".format(d.vendorId, d.productId) + t.describe() + ")")
+    private enum class OpenMode(val label: String) {
+        PLAIN("plain"),
+        SELECT("select setting"),
+        RESET("reset"),
+        ASYNC("async"),
+    }
+
+    private fun openLun(t: AndroidUsbTransport, lun: Int): Lun = try {
+        Lun.Ready(lun, ScsiDisk(BulkOnly(t, lun)).init())
+    } catch (e: NoMediumException) {
+        Lun.Empty(lun)
+    } catch (e: IOException) {
+        Lun.Failed(lun, e.message ?: "Couldn't read this slot")
     }
 
     companion object {
@@ -189,6 +253,32 @@ class UsbBackend(private val context: Context) {
 
         /** USB-NVMe bridge chips, by vendor:product. Health over these needs vendor commands. */
         private val NVME_BRIDGES = setOf(0x152d to 0x0583, 0x152d to 0x0562, 0x0bda to 0x9210, 0x0bda to 0x9220, 0x174c to 0x2362, 0x174c to 0x2364)
+
+        /** Everything Android reports about a USB device, for copy-and-paste troubleshooting. */
+        fun describe(d: UsbDevice): String = buildString {
+            appendLine("Phone: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+            appendLine("Device: %04x:%04x  %s / %s".format(d.vendorId, d.productId, d.manufacturerName ?: "?", d.productName ?: "?"))
+            appendLine("Class ${d.deviceClass}/${d.deviceSubclass}/${d.deviceProtocol}, ${d.configurationCount} configuration(s), path ${d.deviceName}")
+            for (i in 0 until d.interfaceCount) {
+                val f = d.getInterface(i)
+                val kind = when {
+                    f.interfaceClass != 8 -> "other"
+                    f.interfaceProtocol == 0x50 -> "Bulk-Only"
+                    f.interfaceProtocol == 0x62 -> "UAS"
+                    else -> "mass storage, protocol 0x%02x".format(f.interfaceProtocol)
+                }
+                appendLine("Interface ${f.id} alt ${f.alternateSetting}: class ${f.interfaceClass}/${f.interfaceSubclass}/0x%02x ($kind)".format(f.interfaceProtocol))
+                for (e in 0 until f.endpointCount) {
+                    val ep = f.getEndpoint(e)
+                    val type = when (ep.type) {
+                        UsbConstants.USB_ENDPOINT_XFER_BULK -> "bulk"
+                        UsbConstants.USB_ENDPOINT_XFER_INT -> "interrupt"
+                        else -> "type ${ep.type}"
+                    }
+                    appendLine("  endpoint 0x%02x %s %s, %d-byte packets".format(ep.address, if (ep.direction == UsbConstants.USB_DIR_IN) "in" else "out", type, ep.maxPacketSize))
+                }
+            }
+        }
 
         fun isNvmeBridge(d: UsbDevice) = (d.vendorId to d.productId) in NVME_BRIDGES
     }

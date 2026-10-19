@@ -52,6 +52,8 @@ data class Drive(
     val snapshot: DiskSnapshot? = null,
     val usbName: String? = null,
     val simulated: Boolean = false,
+    /** Full troubleshooting report when something failed. */
+    val details: String? = null,
 ) {
     val writable get() = state == DriveState.READY && snapshot != null && !snapshot.readOnly
 }
@@ -188,8 +190,10 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
             }
             conn = try {
                 usb.open(d).also { connections[name] = it }
+            } catch (e: UsbOpenException) {
+                return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = e.details))
             } catch (e: IOException) {
-                return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name))
+                return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = UsbBackend.describe(d)))
             }
         }
         val multi = conn.luns.size > 1

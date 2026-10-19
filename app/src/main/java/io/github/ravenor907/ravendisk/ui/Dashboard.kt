@@ -178,8 +178,23 @@ fun DriveCard(d: Drive, m: AppModel) {
                 Gap(8)
                 Txt(d.message ?: "", Raven.small.copy(color = if (d.state == DriveState.ERROR) Raven.Danger else Raven.Ash))
                 if (d.state == DriveState.ERROR) {
+                    var open by androidx.compose.runtime.remember(d.details) { androidx.compose.runtime.mutableStateOf(false) }
+                    val ctx = LocalContext.current
                     Gap(8)
-                    QuietButton("Try again") { m.refresh(setOf(d.key)) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QuietButton("Try again") { m.refresh(setOf(d.key)) }
+                        if (d.details != null) {
+                            QuietButton(if (open) "Hide details" else "Details") { open = !open }
+                            QuietButton("Copy") {
+                                val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("Raven Disk Utility report", "${d.title}\n${d.message}\n\n${d.details}"))
+                            }
+                        }
+                    }
+                    if (open && d.details != null) {
+                        Gap(10)
+                        Panel(color = Raven.Ink, padding = 12.dp) { Txt(d.details, Raven.mono.copy(color = Raven.Ash, fontSize = Raven.small.fontSize)) }
+                    }
                 }
             }
             else -> {}
