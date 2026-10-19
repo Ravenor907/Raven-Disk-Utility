@@ -43,6 +43,9 @@ class AndroidUsbTransport(
         conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 5000)
     }
 
+    /** USB details for error reports: IDs, interface and packet size. */
+    fun describe(): String = "interface ${intf.id} alt ${intf.alternateSetting}, ${outEp.maxPacketSize}-byte packets"
+
     override fun maxLun(): Int {
         val b = ByteArray(1)
         val r = conn.controlTransfer(0xA1, 0xFE, 0, intf.id, b, 1, 2000)
@@ -121,7 +124,11 @@ class UsbBackend(private val context: Context) {
             conn.close()
             throw IOException("The drive is busy. Eject it in Android's storage settings, then try again.")
         }
-        if (intf.alternateSetting != 0) conn.setInterface(intf)
+        // Always select the Bulk-Only setting: many USB 3 sticks are left in their UAS setting
+        // by Android's driver, and then every bulk transfer fails. Then clear any stalled pipes.
+        conn.setInterface(intf)
+        conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 2000)
+        conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 2000)
         val t = AndroidUsbTransport(conn, intf, inEp, outEp)
         try {
             val max = try {
@@ -129,20 +136,31 @@ class UsbBackend(private val context: Context) {
             } catch (e: Exception) {
                 0
             }
-            val luns = (0..max).map { lun ->
-                try {
-                    Lun.Ready(lun, ScsiDisk(BulkOnly(t, lun)).init())
-                } catch (e: NoMediumException) {
-                    Lun.Empty(lun)
-                } catch (e: IOException) {
-                    Lun.Failed(lun, e.message ?: "Couldn't read the drive")
-                }
-            }
+            val luns = (0..max).map { lun -> openLun(d, t, lun) }
             return UsbConnection(d, t, luns, linkSpeed(outEp.maxPacketSize))
         } catch (e: Exception) {
             t.close()
             throw e
         }
+    }
+
+    /** Tries a LUN a few ways before giving up: as is, after a mass-storage reset, after a pause. */
+    private fun openLun(d: UsbDevice, t: AndroidUsbTransport, lun: Int): Lun {
+        var last: IOException? = null
+        for (attempt in 0 until 3) {
+            try {
+                if (attempt > 0) {
+                    t.resetRecovery()
+                    Thread.sleep(400L * attempt)
+                }
+                return Lun.Ready(lun, ScsiDisk(BulkOnly(t, lun)).init())
+            } catch (e: NoMediumException) {
+                return Lun.Empty(lun)
+            } catch (e: IOException) {
+                last = e
+            }
+        }
+        return Lun.Failed(lun, (last?.message ?: "Couldn't read the drive") + " (USB %04x:%04x, ".format(d.vendorId, d.productId) + t.describe() + ")")
     }
 
     companion object {

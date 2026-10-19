@@ -32,8 +32,6 @@ fun DashboardScreen(m: AppModel) {
     val ctx = LocalContext.current
     Page {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            RavenMark(Modifier.size(width = 40.dp, height = 40.dp))
-            HGap(12)
             Column(Modifier.weight(1f)) {
                 Txt("RAVEN DISK UTILITY", Raven.brand)
                 Gap(2)

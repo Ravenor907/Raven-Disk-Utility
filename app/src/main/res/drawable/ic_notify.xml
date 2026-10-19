@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The perched raven, for the status bar and themed (monochrome) icons. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="100"
-    android:viewportHeight="100">
-    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
-        android:pathData="M2,34 L13,26.5 L24,20.5 L30,15.6 L37,14.8 L43,18 L50,26 C58,33 68,45 78,58 L91,76 L99,93 L92,90.5 L94.5,97 L85,90 L73,83 C70,85 66,86 63,86 L62,92.5 L65.5,95.5 L58.5,95.5 L58,86.3 L54.6,86 L54,93 L57.5,96 L50.5,96 L50.5,85.4 L43,82.5 L35.5,73.5 L31.4,63 L30,56 L25,53.5 L29.2,50.6 L22.6,47.6 L27,44.6 L21,42 L24.6,39.4 L21.4,36.4 L5,35.6 Z M31.1,22.6 a1.9,1.9 0 1 0 3.8,0 a1.9,1.9 0 1 0 -3.8,0 z" />
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M4,6 h7 v12 h-7 a2,2 0 0 1 -2,-2 v-8 a2,2 0 0 1 2,-2 z M12.5,6 h3.5 v12 h-3.5 z M17.5,6 h2.5 a2,2 0 0 1 2,2 v8 a2,2 0 0 1 -2,2 h-2.5 z" />
 </vector>

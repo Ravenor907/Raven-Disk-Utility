@@ -88,8 +88,6 @@ fun CapabilitiesScreen(m: AppModel) {
         TopBar("About this phone", "What Raven can do here", onBack = { m.pop() })
         Panel {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RavenMark(Modifier.size(width = 34.dp, height = 34.dp))
-                HGap(14)
                 Column(Modifier.weight(1f)) {
                     Txt("External drives only", Raven.h2)
                     Txt("Raven works on drives you plug in over USB. It never changes your phone's own storage, and it never asks for root.", Raven.small)
