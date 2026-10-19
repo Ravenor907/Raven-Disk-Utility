@@ -157,6 +157,8 @@ jobs:
           fi
           pre=""
           case "$v" in 0.*) pre="--prerelease" ;; esac
+          # Notes: this version's section of CHANGELOG.md, plus install steps.
+          awk -v v="$v" '/^## /{p=($2==v)} p && !/^## /' CHANGELOG.md > notes.md
+          printf '\n**Install:** download the APK below on your phone and open it. Plug in the drive with a USB-C adapter or hub and allow access when Android asks.\n' >> notes.md
           gh release create "$tag" "RavenDiskUtility-$v.apk" -R "${{ github.repository }}" --target "$GITHUB_SHA" $pre \
-            --title "Raven Disk Utility $v" \
-            --notes "Install the APK, plug in a USB drive (adapter or hub is fine), and allow access when Android asks. Signed with the shared test key. See the README for what works without root."
+            --title "Raven Disk Utility $v" --notes-file notes.md
