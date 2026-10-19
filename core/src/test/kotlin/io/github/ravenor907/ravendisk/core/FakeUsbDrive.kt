@@ -32,7 +32,18 @@ class FakeUsbDrive(
     override val maxTransfer: Int = 16384,
     /** The next this-many data-phase transfers fail once each, like a flaky cable. */
     var flakyTransfers: Int = 0,
+    /** Stall bulk-in after a short data phase until the host clears the halt (Bulk-Only case 4). */
+    val stallAfterShort: Boolean = false,
 ) : UsbTransport {
+    private var inHalted = false
+    var haltsCleared = 0
+
+    override fun clearHalt(input: Boolean): Int {
+        if (input) inHalted = false
+        haltsCleared++
+        return 0
+    }
+
     val disks = Array(luns) { ByteArray((blocks * blockSize).toInt()) }
     val disk get() = disks[0]
     val commands = ArrayList<Int>()
@@ -94,12 +105,16 @@ class FakeUsbDrive(
     }
 
     override fun bulkIn(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
+        if (inHalted) return -1
         val p = pending ?: return -1
         if (!cswReady) {
             val n = minOf(length, inBuf.size - dataPos)
             System.arraycopy(inBuf, dataPos, data, offset, n)
             dataPos += n
-            if (dataPos >= p.length || dataPos >= inBuf.size) cswReady = true
+            if (dataPos >= p.length || dataPos >= inBuf.size) {
+                cswReady = true
+                if (stallAfterShort && dataPos < p.length) inHalted = true
+            }
             return n
         }
         if (length < 13) return -1
@@ -145,7 +160,7 @@ class FakeUsbDrive(
                 inBuf = sense.copyOf(c.length)
                 sense = ByteArray(18)
             }
-            0x12 -> inBuf = inquiry(c.cdb).copyOf(c.length)
+            0x12 -> inquiry(c.cdb).let { r -> inBuf = if (c.cdb[1].toInt() and 1 != 0) r else r.copyOf(c.length) }
             0x1A -> inBuf = ByteArray(c.length).also { it[0] = 3; if (writeProtected) it[2] = 0x80.toByte() }
             0x25 -> inBuf = ByteBuffer.allocate(8)
                 .putInt(if (reportedBlocks - 1 > 0xFFFFFFFFL) -1 else (reportedBlocks - 1).toInt())

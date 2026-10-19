@@ -21,6 +21,9 @@ interface UsbTransport {
 
     /** GET MAX LUN class request. Devices that stall it have a single LUN (0). */
     fun maxLun(): Int = 0
+
+    /** CLEAR_FEATURE(ENDPOINT_HALT) on the bulk-in or bulk-out pipe. Returns the control transfer result. */
+    fun clearHalt(input: Boolean): Int = -1
 }
 
 open class ScsiException(msg: String, val senseKey: Int = -1, val asc: Int = -1, val ascq: Int = -1) : IOException(msg)
@@ -64,9 +67,10 @@ class BulkOnly(val t: UsbTransport, val lun: Int = 0) {
                 val n = minOf(transferSize, length - done)
                 val r = if (dataIn != null) t.bulkIn(dataIn, offset + done, n, timeoutMs) else t.bulkOut(dataOut!!, offset + done, n, timeoutMs)
                 if (r < 0) {
-                    // A stalled data phase still ends with a CSW; try to read it before giving up.
-                    if (dataIn != null) break
-                    fail("USB transfer failed")
+                    // The drive stalled the data phase (allowed by the spec when it has less data than
+                    // asked for, or refuses the data). Clear the stall; the status still follows.
+                    t.clearHalt(dataIn != null)
+                    break
                 }
                 done += r
                 if (r < n) break // short packet ends the data phase
@@ -75,7 +79,12 @@ class BulkOnly(val t: UsbTransport, val lun: Int = 0) {
 
         val csw = ByteArray(13)
         var got = t.bulkIn(csw, 0, 13, timeoutMs)
-        if (got < 0) got = t.bulkIn(csw, 0, 13, timeoutMs) // a stalled pipe often answers on retry
+        if (got < 0) {
+            // Bulk-Only "case 4": after a short data phase the drive may stall bulk-in before the
+            // status. Clearing the stall and reading again is the procedure the spec gives.
+            t.clearHalt(true)
+            got = t.bulkIn(csw, 0, 13, timeoutMs)
+        }
         if (got != 13) fail("The drive did not report command status")
         val b = ByteBuffer.wrap(csw).order(ByteOrder.LITTLE_ENDIAN)
         if (b.getInt(0) != CSW_SIGNATURE || b.getInt(4) != myTag) fail("The drive sent a garbled status")

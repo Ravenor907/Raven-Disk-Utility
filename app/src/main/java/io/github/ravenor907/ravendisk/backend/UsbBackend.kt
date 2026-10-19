@@ -94,6 +94,13 @@ class AndroidUsbTransport(
         note("mass storage reset -> $a, clear halt in -> $b, clear halt out -> $c")
     }
 
+    override fun clearHalt(input: Boolean): Int {
+        val ep = if (input) inEp else outEp
+        val r = conn.controlTransfer(0x02, 0x01, 0, ep.address, null, 0, 2000)
+        note("clear halt ${if (input) "in" else "out"} -> $r")
+        return r
+    }
+
     override fun maxLun(): Int {
         val b = ByteArray(1)
         val r = conn.controlTransfer(0xA1, 0xFE, 0, intf.id, b, 1, 2000)

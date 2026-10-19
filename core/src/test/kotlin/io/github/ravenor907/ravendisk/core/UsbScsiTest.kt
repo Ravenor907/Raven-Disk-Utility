@@ -40,6 +40,18 @@ class UsbScsiTest {
         assertFalse(d.discard.supported)
     }
 
+    /** Seen on a real SSK USB 3.2 stick: short VPD answer, then bulk-in stalls before the status. */
+    @Test
+    fun clearsTheStallAfterAShortAnswer() {
+        val f = FakeUsbDrive(blocks = 4096, serial = "SSK1", stallAfterShort = true)
+        val d = open(f)
+        assertEquals("SSK1", d.identity.serial)
+        assertTrue(f.haltsCleared > 0)
+        assertEquals(0, f.resets)
+        d.write(0, 1, ByteArray(512) { 7 })
+        assertEquals(7, d.readBlocks(0, 1)[0].toInt())
+    }
+
     @Test
     fun readWriteRoundTripAcrossCommands() {
         val f = FakeUsbDrive(blocks = 8192)
