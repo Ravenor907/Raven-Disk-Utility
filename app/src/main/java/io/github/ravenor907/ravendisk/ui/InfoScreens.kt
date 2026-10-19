@@ -152,7 +152,7 @@ fun CapabilitiesScreen(m: AppModel) {
         SectionTitle("Try it safely")
         Panel {
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Checkbox) { m.setSimulated(!m.simulated) }.padding(4.dp),
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Checkbox) { m.showSimulated(!m.simulated) }.padding(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CheckGlyph(m.simulated)

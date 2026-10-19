@@ -111,7 +111,7 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
 
     fun requestPermission(key: String) = drives.requestPermission(key)
 
-    fun setSimulated(on: Boolean) {
+    fun showSimulated(on: Boolean) {
         drives.demo = on
         simulated = on
         refresh()
