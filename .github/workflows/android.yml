@@ -132,10 +132,11 @@ jobs:
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$branch"
 
   release:
+    # Publishes as soon as the APK builds (the other checks still run and report).
     # Publishes when main carries a versionName that has no release yet, so bumping versionName
     # in app/build.gradle.kts is what ships a build. 0.x builds are marked as pre-releases.
     if: github.ref == 'refs/heads/main'
-    needs: [build, real-tools, screens]
+    needs: [build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
