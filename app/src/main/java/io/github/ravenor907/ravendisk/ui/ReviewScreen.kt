@@ -37,7 +37,6 @@ fun ReviewScreen(m: AppModel, key: String) {
     val destructive = ops.any { it.destructive }
     val whole = ops.any { it is Op.NewTable || (it is Op.Erase && it.number == null) }
     var ack by remember(key) { mutableStateOf(false) }
-    var typed by remember(key) { mutableStateOf("") }
 
     // Data that disappears: partitions that existed before and are deleted, formatted or erased.
     val after = p.current
@@ -94,17 +93,13 @@ fun ReviewScreen(m: AppModel, key: String) {
         }
         Gap(16)
         if (destructive) {
-            AckBox("I understand the data listed above will be permanently lost. Once writing starts there's no undo.", ack) { ack = it }
-            if (whole) {
-                Gap(12)
-                Field(typed, { typed = it }, "This affects the whole drive. Type ERASE to confirm", placeholder = "ERASE")
-            }
+            AckBox(if (whole) "I understand everything on this drive will be permanently lost. Once writing starts there's no undo." else "I understand the data listed above will be permanently lost. Once writing starts there's no undo.", ack) { ack = it }
         } else {
             Txt("These changes don't touch your files: they rewrite labels, names or flags only.", Raven.hint)
         }
         Gap(16)
         val busy = run?.running == true
-        val ready = (!destructive || ack) && (!whole || typed.trim() == "ERASE") && !busy
+        val ready = (!destructive || ack) && !busy
         if (busy) {
             Banner("Another operation is running. Wait for it to finish.", Tone.WARN)
             Gap(10)

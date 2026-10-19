@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- No more typing ERASE. Ticking the confirmation box on the review screen is enough, even when the whole drive is wiped.
+
 ## 0.4.2
 
 - **Unmount from the app.** When Android has a drive mounted, the drive page shows an **Unmount** button. No more trips to Settings before formatting.
