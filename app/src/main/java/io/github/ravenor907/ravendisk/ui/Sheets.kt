@@ -299,3 +299,46 @@ fun PlanSheet(@Suppress("UNUSED_PARAMETER") m: AppModel, p: Planner, kind: Sheet
         }
     }
 }
+
+/** Whole-drive format: a new table and one partition with the chosen filesystem, reviewed next. */
+@Composable
+fun QuickFormatSheet(p: Planner, onClose: () -> Unit, onDone: (List<Op>) -> Unit) {
+    Sheet("Format drive", onClose) {
+        var fs by remember { mutableStateOf(FsType.EXFAT) }
+        var label by remember { mutableStateOf("") }
+        val bytes = p.snap.blockCount * p.snap.blockSize
+        // MBR is the most widely readable; GPT is needed past 2 TiB.
+        val kind = if (bytes > 2L * 1024 * 1024 * 1024 * 1024) TableKind.GPT else TableKind.MBR
+        fun plan(f: FsType): Pair<List<Op>?, String?> {
+            val t = Planner(p.snap)
+            return try {
+                t.add(Op.NewTable(kind))
+                val free = t.current.table!!.freeRegions().maxByOrNull { it.last - it.first } ?: return null to "No space on the drive"
+                val r = Planner.placeInFree(free, p.snap.blockSize, null, p.snap.physicalBlockSize) ?: return null to "The drive is too small"
+                val ops = listOf(Op.NewTable(kind), Op.Create(r.first, r.last, f, label.trim()))
+                t.add(ops[1])
+                ops to null
+            } catch (e: io.github.ravenor907.ravendisk.core.plan.PlanException) {
+                null to e.message
+            }
+        }
+        Banner("Everything on this drive will be erased.", Tone.DANGER)
+        Gap(14)
+        Txt("Use it with", Raven.small)
+        Gap(6)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(
+                FsType.EXFAT to "Phones, Windows, Mac, Linux, consoles. Best choice for most people.",
+                FsType.FAT32 to "Older devices, car stereos, cameras, PC firmware. Files up to 4 GB.",
+                FsType.EXT4 to "Linux only: Steam Deck, Bazzite, SteamOS game drives.",
+            ).forEach { (f, why) ->
+                val problem = plan(f).second
+                Choice(f.label, fs == f, Modifier.fillMaxWidth(), enabled = problem == null, detail = problem ?: why) { fs = f }
+            }
+        }
+        Gap(14)
+        Field(label, { label = it }, "Name (optional)", placeholder = if (fs == FsType.FAT32) "UP TO 11 CHARACTERS" else "My drive")
+        val (ops, problem) = plan(fs)
+        SheetButtons("Continue", problem, danger = true, onClose = onClose) { ops?.let(onDone) }
+    }
+}

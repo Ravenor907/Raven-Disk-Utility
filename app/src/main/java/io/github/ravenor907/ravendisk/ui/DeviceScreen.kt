@@ -54,6 +54,7 @@ sealed class SheetKind {
     data class Resize(val n: Int) : SheetKind()
     data class Erase(val n: Int?) : SheetKind()
     object NewTable : SheetKind()
+    object QuickFormat : SheetKind()
 }
 
 @Composable
@@ -92,6 +93,7 @@ fun DeviceScreen(m: AppModel, key: String) {
                     Row(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                         Column(Modifier.weight(1.1f).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 12.dp)) {
                             Header(m, d, planner)
+                            FormatDriveCard(planner) { sheet = SheetKind.QuickFormat }
                             LayoutPanel(d, planner, state, selected) { selected = it }
                         }
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 12.dp)) {
@@ -103,6 +105,7 @@ fun DeviceScreen(m: AppModel, key: String) {
                 } else {
                     Page {
                         Header(m, d, planner)
+                        FormatDriveCard(planner) { sheet = SheetKind.QuickFormat }
                         LayoutPanel(d, planner, state, selected) { selected = it }
                         message?.let { Gap(10); Banner(it, Tone.DANGER) }
                         if (sel != null) {
@@ -116,7 +119,14 @@ fun DeviceScreen(m: AppModel, key: String) {
             }
             if (planner.queue.isNotEmpty()) PendingBar(m, key, planner)
         }
-        sheet?.let { k ->
+        if (sheet == SheetKind.QuickFormat) {
+            QuickFormatSheet(planner, onClose = { sheet = null }) { ops ->
+                ops.forEach { planner.add(it) }
+                m.planChanged()
+                sheet = null
+                m.push(Screen.Review(key))
+            }
+        } else sheet?.let { k ->
             PlanSheet(m, planner, k, onClose = { sheet = null }) { op ->
                 planner.add(op)
                 m.planChanged()
@@ -187,6 +197,10 @@ private fun LayoutPanel(d: Drive, p: Planner, state: PlanState, selected: String
         Gap(12)
         if (segs.isEmpty()) Txt(if (state.table == null) "Nothing to show until there's a partition table." else "The table is empty.", Raven.hint)
         segs.forEach { s -> SegmentRow(s, bs, s.key == selected) { onSelect(s.key) } }
+        if (segs.any { !it.free }) {
+            Gap(6)
+            Txt("Tap a partition to format, rename or delete just that part.", Raven.small)
+        }
     }
 }
 
@@ -270,7 +284,10 @@ private fun SelectionPanel(p: Planner, state: PlanState, s: io.github.ravenor907
             Txt("Partition $n", Raven.h2, Modifier.weight(1f))
             changeTag(v)
         }
-        Gap(6)
+        Gap(10)
+        val fsCandidates0 = FsSupport.creatable.map { Op.Format(n, it) }
+        PrimaryButton("Format this partition", Modifier.fillMaxWidth(), enabled = fsCandidates0.any { p.problem(it) == null }) { open(SheetKind.Format(n)) }
+        Gap(10)
         KeyValue("Filesystem", fsName(v.fs), note = when {
             v.change == VolumeChange.NEW && v.fs != null -> "Will be created"
             v.change == VolumeChange.FORMATTED -> "Will be formatted (was ${v.before?.type?.label ?: "unformatted"})"
@@ -326,11 +343,16 @@ private fun SelectionPanel(p: Planner, state: PlanState, s: io.github.ravenor907
 @Composable
 private fun DrivePanel(m: AppModel, d: Drive, p: Planner, open: (SheetKind) -> Unit) {
     val i = d.info!!
-    SectionTitle("Drive")
-    Panel {
-        ActionRow("New partition table…", p.problem(Op.NewTable(TableKind.GPT)), danger = true) { open(SheetKind.NewTable) }
-        ActionRow("Erase whole drive…", p.problem(Op.Erase(null, EraseMethod.ZERO)), danger = true) { open(SheetKind.Erase(null)) }
-        ActionRow("Read the drive again", if (p.queue.isNotEmpty()) "Review or discard the pending changes first" else null) { m.refresh(setOf(d.key)) }
+    var advanced by remember(d.key) { mutableStateOf(false) }
+    SectionTitle("Advanced", trailing = { LinkButton(if (advanced) "Hide" else "Show") { advanced = !advanced } })
+    if (advanced) {
+        Panel {
+            ActionRow("New partition table…", p.problem(Op.NewTable(TableKind.GPT)), danger = true) { open(SheetKind.NewTable) }
+            ActionRow("Securely erase the whole drive…", p.problem(Op.Erase(null, EraseMethod.ZERO)), danger = true) { open(SheetKind.Erase(null)) }
+            ActionRow("Read the drive again", if (p.queue.isNotEmpty()) "Review or discard the pending changes first" else null) { m.refresh(setOf(d.key)) }
+        }
+    } else {
+        Txt("Partition tables, secure erase, re-reading the drive.", Raven.small)
     }
     SectionTitle("Properties")
     Panel {
@@ -414,4 +436,26 @@ private fun PendingBar(m: AppModel, key: String, p: Planner) {
             PrimaryButton("Review") { m.push(Screen.Review(key)) }
         }
     }
+}
+
+/** The one thing most people came to do, up front. */
+@Composable
+private fun FormatDriveCard(p: Planner, onClick: () -> Unit) {
+    val blocked = when {
+        p.snap.readOnly -> "This drive is write-protected"
+        p.queue.isNotEmpty() -> "Review or discard the pending changes first"
+        else -> null
+    }
+    Panel {
+        Txt("Format drive", Raven.h2)
+        Gap(4)
+        Txt("Wipes the drive and sets it up fresh as one partition. Takes seconds.", Raven.hint)
+        Gap(12)
+        PrimaryButton("Format drive", Modifier.fillMaxWidth(), enabled = blocked == null, onClick = onClick)
+        blocked?.let {
+            Gap(6)
+            Txt(it, Raven.small)
+        }
+    }
+    Gap(12)
 }
