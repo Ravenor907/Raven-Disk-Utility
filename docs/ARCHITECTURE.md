@@ -56,9 +56,9 @@ closed after the last; an entry that was never closed is reported on the next la
 
 | Package | What it does |
 |---|---|
-| `backend` | `UsbBackend` (claims Bulk-Only interfaces, multiple LUNs for card readers, UAS detection), `Platform` (Android volumes, USB host, su and tool detection), `Drives` (the dashboard's state, sessions and plans) |
+| `backend` | `UsbBackend` (claims Bulk-Only interfaces, multiple LUNs for card readers, UAS detection), `Platform` (USB host support, Android-mounted volumes), `Drives` (the dashboard's state, sessions and plans) |
 | `run` | `Runner` runs one plan at a time off the main thread; `OpService` is the foreground service that keeps the process and CPU alive meanwhile |
 | `ui` | Compose (foundation only, no Material), Handheld Forge's design language with Raven's own accent |
 
-New backends (root, a desktop front end) plug in by producing `DiskInfo` and a `DiskSession`;
+New backends (a desktop front end, say) plug in by producing `DiskInfo` and a `DiskSession`;
 the planner, executor and UI don't change.

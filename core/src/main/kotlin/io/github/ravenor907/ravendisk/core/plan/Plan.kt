@@ -375,7 +375,7 @@ class Planner(val snap: DiskSnapshot) {
         val hasData = v.change == VolumeChange.KEPT || v.change == VolumeChange.MODIFIED
         if (hasData && v.before != null) {
             val why = when (val sup = FsSupport.of(v.before.type, FsOp.RESIZE)) {
-                is Support.NeedsTool -> "Resizing ${v.before.type.label} needs ${sup.tool}, which isn't available here; the partition can't change size without its filesystem"
+                is Support.Planned -> "${sup.what}. Until then a partition with data keeps its size."
                 is Support.No -> sup.reason
                 Support.Native -> null
             }

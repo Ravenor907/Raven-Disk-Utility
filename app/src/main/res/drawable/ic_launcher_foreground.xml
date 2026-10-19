@@ -1,22 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A drive split into partitions, the first lit in the app's aurora gradient. 108dp canvas, 66dp safe zone. -->
+<!-- A dark USB stick with a perched raven decal in the app's aurora gradient. 108dp canvas, 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M30,38 h22 v32 h-22 a5,5 0 0 1 -5,-5 v-22 a5,5 0 0 1 5,-5 z">
+    <!-- Connector -->
+    <path android:pathData="M72,44 h13 a2,2 0 0 1 2,2 v16 a2,2 0 0 1 -2,2 h-13 z">
         <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="25" android:startY="38"
-                android:endX="52" android:endY="70">
+            <gradient android:type="linear" android:startX="0" android:startY="44" android:endX="0" android:endY="64">
+                <item android:offset="0" android:color="#C9D1DA" />
+                <item android:offset="1" android:color="#8A95A2" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#14181D" android:pathData="M77,48.5 h5 v3.5 h-5 z M77,56 h5 v3.5 h-5 z" />
+    <!-- Body -->
+    <path android:pathData="M28,36 h38 a7,7 0 0 1 7,7 v22 a7,7 0 0 1 -7,7 h-38 a7,7 0 0 1 -7,-7 v-22 a7,7 0 0 1 7,-7 z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="36" android:endX="0" android:endY="72">
+                <item android:offset="0" android:color="#323A45" />
+                <item android:offset="1" android:color="#1E242B" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:strokeWidth="1.5" android:strokeAlpha="0.55" android:fillColor="#00000000"
+        android:pathData="M28,36.75 h38 a6.25,6.25 0 0 1 6.25,6.25 v22 a6.25,6.25 0 0 1 -6.25,6.25 h-38 a6.25,6.25 0 0 1 -6.25,-6.25 v-22 a6.25,6.25 0 0 1 6.25,-6.25 z">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="21" android:startY="36" android:endX="73" android:endY="72">
                 <item android:offset="0" android:color="#6FD3FF" />
                 <item android:offset="1" android:color="#8B7CFF" />
             </gradient>
         </aapt:attr>
     </path>
-    <path android:fillColor="#3A4350" android:pathData="M55,38 h11 v32 h-11 z" />
-    <path android:fillColor="#5A6574" android:pathData="M69,38 h9 a5,5 0 0 1 5,5 v22 a5,5 0 0 1 -5,5 h-9 z" />
+    <!-- Raven decal -->
+    <group android:translateX="28.6" android:translateY="34.4" android:scaleX="0.355" android:scaleY="0.355">
+        <path android:pathData="M2,34 L13,26.5 L24,20.5 L30,15.6 L37,14.8 L43,18 L50,26 C58,33 68,45 78,58 L91,76 L99,93 L92,90.5 L94.5,97 L85,90 L73,83 C70,85 66,86 63,86 L62,92.5 L65.5,95.5 L58.5,95.5 L58,86.3 L54.6,86 L54,93 L57.5,96 L50.5,96 L50.5,85.4 L43,82.5 L35.5,73.5 L31.4,63 L30,56 L25,53.5 L29.2,50.6 L22.6,47.6 L27,44.6 L21,42 L24.6,39.4 L21.4,36.4 L5,35.6 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="0" android:startY="15" android:endX="99" android:endY="97">
+                    <item android:offset="0" android:color="#6FD3FF" />
+                    <item android:offset="1" android:color="#8B7CFF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#262D36" android:pathData="M31.1,22.6 a1.9,1.9 0 1 0 3.8,0 a1.9,1.9 0 1 0 -3.8,0 z" />
+        <path android:strokeColor="#262D36" android:strokeWidth="1.6" android:fillColor="#00000000" android:pathData="M46,35 L61,50 L79,73" />
+    </group>
 </vector>

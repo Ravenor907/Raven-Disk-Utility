@@ -46,8 +46,8 @@ sealed class Support {
     /** Implemented in the app itself; works on any device the app can write to. */
     object Native : Support()
 
-    /** Needs a tool binary that runs with root; [tool] is what to look for. */
-    data class NeedsTool(val tool: String) : Support()
+    /** On the roadmap: Raven will do it itself in a later version. */
+    data class Planned(val what: String) : Support()
 
     /** Not supported, with the reason shown to the person. */
     data class No(val reason: String) : Support()
@@ -62,27 +62,15 @@ object FsSupport {
     private val nativeLabel = setOf(FsType.FAT12, FsType.FAT16, FsType.FAT32, FsType.EXFAT, FsType.EXT2, FsType.EXT3, FsType.EXT4, FsType.SWAP)
     private val inspectable = FsType.entries.toSet()
 
-    /** Root tools that Android itself ships (or that are commonly present) for each filesystem. */
-    private val createTools = mapOf(
-        FsType.EXT3 to "mke2fs", FsType.EXT2 to "mke2fs", FsType.F2FS to "make_f2fs",
-        FsType.FAT16 to "newfs_msdos", FsType.NTFS to "mkntfs", FsType.BTRFS to "mkfs.btrfs", FsType.XFS to "mkfs.xfs",
-        FsType.UDF to "mkudffs",
-    )
-    private val checkTools = mapOf(
-        FsType.EXT2 to "e2fsck", FsType.EXT3 to "e2fsck", FsType.EXT4 to "e2fsck", FsType.F2FS to "fsck.f2fs",
-        FsType.FAT12 to "fsck_msdos", FsType.FAT16 to "fsck_msdos", FsType.FAT32 to "fsck_msdos", FsType.EXFAT to "fsck.exfat",
-        FsType.NTFS to "ntfsfix", FsType.BTRFS to "btrfs", FsType.XFS to "xfs_repair",
-    )
-    private val resizeTools = mapOf(
-        FsType.EXT2 to "resize2fs", FsType.EXT3 to "resize2fs", FsType.EXT4 to "resize2fs", FsType.F2FS to "resize.f2fs",
-        FsType.NTFS to "ntfsresize", FsType.BTRFS to "btrfs",
-    )
+    private val plannedCreate = setOf(FsType.NTFS, FsType.EXT2, FsType.EXT3, FsType.FAT16, FsType.F2FS, FsType.BTRFS, FsType.XFS, FsType.UDF)
+    private val plannedCheck = setOf(FsType.FAT12, FsType.FAT16, FsType.FAT32, FsType.EXFAT, FsType.EXT2, FsType.EXT3, FsType.EXT4, FsType.NTFS)
+    private val plannedResize = setOf(FsType.FAT16, FsType.FAT32, FsType.EXFAT, FsType.EXT2, FsType.EXT3, FsType.EXT4, FsType.NTFS)
 
     fun of(fs: FsType, op: FsOp): Support = when (op) {
         FsOp.INSPECT -> if (fs in inspectable) Support.Native else Support.No("Not recognized")
         FsOp.CREATE -> when {
             fs in nativeCreate -> Support.Native
-            fs in createTools -> Support.NeedsTool(createTools.getValue(fs))
+            fs in plannedCreate -> Support.Planned("Creating ${fs.label} is coming in a later version")
             else -> Support.No("Creating ${fs.label} isn't supported")
         }
         FsOp.LABEL -> when {
@@ -90,11 +78,12 @@ object FsSupport {
             fs in nativeLabel -> Support.Native
             else -> Support.No("Changing ${fs.label} labels isn't supported yet")
         }
-        FsOp.CHECK, FsOp.REPAIR -> checkTools[fs]?.let { Support.NeedsTool(it) } ?: Support.No("No checker for ${fs.label}")
+        FsOp.CHECK, FsOp.REPAIR -> if (fs in plannedCheck) Support.Planned("Checking ${fs.label} is coming in a later version") else Support.No("No checker for ${fs.label}")
         FsOp.RESIZE -> when {
             fs == FsType.SWAP -> Support.No("Recreate swap at the new size instead")
             fs == FsType.XFS -> Support.No("XFS can't shrink, and growing needs it mounted")
-            else -> resizeTools[fs]?.let { Support.NeedsTool(it) } ?: Support.No("Resizing ${fs.label} isn't supported")
+            fs in plannedResize -> Support.Planned("Resizing ${fs.label} with its data is coming in a later version")
+            else -> Support.No("Resizing ${fs.label} isn't supported")
         }
     }
 

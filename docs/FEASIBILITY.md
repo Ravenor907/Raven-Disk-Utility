@@ -57,20 +57,13 @@ Limits of this path:
   or bricked when a bridge mistranslates them, so they're not offered. The app offers an honest
   zero overwrite and discard, and says what each does and doesn't guarantee.
 
-## 4. What needs root
+## 4. Root: not used, by design
 
-With `su` (Magisk, KernelSU) a shell can open `/dev/block/*` and run the tools Android itself
-ships: `mke2fs`, `e2fsck`, `resize2fs`, `make_f2fs`, `fsck.f2fs`, `newfs_msdos`, `fsck_msdos`,
-and sometimes `sgdisk`. That adds:
-
-- Partitioning and formatting **SD card slots** (which are not USB devices) and UAS-only enclosures.
-- Creating, checking, repairing and resizing **ext4 and F2FS**, and checking FAT.
-- Inspecting the phone's internal layout (read-only by policy: Raven will never write to the
-  phone's own storage).
-
-Root never happens implicitly: running `su` shows a grant prompt, so the app only runs it when the
-person taps "Check root access". Version 0.1 detects root and which tools exist and reports them;
-the root execution backend is the next milestone.
+Raven is for external drives, and everything it does on them works through USB host access with
+no root. It never asks for root and never touches the phone's own storage. Root would only add
+the phone's internal partitions and SD card slot, which is exactly where a mistake can stop a
+phone from booting, so it stays out of scope. Where an external-drive feature would normally
+need system tools (ext4, fsck), Raven implements it itself instead.
 
 ## 5. Recovery, privileged system apps, separate Linux
 
@@ -83,16 +76,13 @@ the root execution backend is the next milestone.
   devices. The right tool there is KDE Partition Manager or GNOME Disks. The UI/backend split here
   would allow a desktop front end later, but that isn't planned for 0.x.
 
-## 6. Filesystem tools on Android ABIs
+## 6. Filesystem tools
 
-Android doesn't ship tools for exFAT, NTFS, Btrfs or XFS, and an app can't use the system's tools
-without root. So filesystems the app creates without root are written by the app's own code:
-**FAT32, exFAT and Linux swap** (plus label changes for FAT, exFAT, ext2/3/4 and swap). Those are
-checked in CI against `fsck.vfat`, `fsck.exfat`, `blkid`, `sgdisk --verify` and by mounting them.
-
-Bundling `mke2fs`/`e2fsck` (from e2fsprogs) for arm64-v8a and x86_64 is feasible via the NDK and
-would bring ext4 creation to non-root USB drives through a block-device shim; it's on the roadmap,
-not in 0.1.
+Android doesn't ship tools an app can use for exFAT, NTFS, Btrfs or XFS, and its own `mke2fs` and
+`e2fsck` can't be pointed at a USB drive an app has claimed. So Raven writes filesystems with its
+own code: **FAT32, exFAT, ext4 and Linux swap** today (plus label changes for FAT, exFAT, ext2/3/4
+and swap). Every build checks them against `fsck.vfat`, `fsck.exfat`, `e2fsck`, `blkid`,
+`sgdisk --verify` and a real mount. Checking, repairing and resizing are being built the same way.
 
 ## 7. How USB storage shows up on Android
 
@@ -105,16 +95,13 @@ the drive to tell which partition Android had mounted.
 USB-to-SATA and USB-to-NVMe enclosures look exactly like flash drives at this level: a SCSI disk
 behind Bulk-Only or UAS. The bridge decides what else passes through.
 
-## 8. Feasibility by environment
+## 8. What works
 
-| | Stock Android | Rooted Android | Linux handheld |
-|---|---|---|---|
-| USB drives (Bulk-Only): partition, format FAT32/exFAT/swap, label, erase | Yes (0.1) | Yes (0.1) | Use native tools |
-| USB drives: ext4 create | Yes (0.2) | Yes | Native |
-| USB drives: check, repair, resize with data | Planned (in-app) | Planned | Native |
-| UAS-only enclosures | No | Planned (root, /dev/block) | Native |
-| SD card slot | Info only | Planned (root) | Native |
-| Phone's internal storage | Info only | Read-only by policy | n/a |
-| SMART over USB-SATA bridges | Yes (0.1) | Yes | Native |
-| NVMe health over USB bridges | Not yet | Not yet | Native |
-| Secure erase (ATA/NVMe sanitize) | Not offered | Not offered | Native |
+| | Raven (any Android phone with USB host) |
+|---|---|
+| USB drives, SSDs and HDDs in enclosures, card readers (Bulk-Only) | Partition, format FAT32/exFAT/ext4/swap, label, erase |
+| SMART over USB-SATA bridges | Yes |
+| Check, repair, resize with data, NTFS create | Being built, in-app |
+| NVMe health over USB bridges | Not yet |
+| UAS-only enclosures | Not possible (Android limit) |
+| The phone's own storage, SD card slot | Never touched, by design |

@@ -8,7 +8,6 @@ import android.os.Environment
 import android.os.StatFs
 import android.os.storage.StorageManager
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 /** A volume Android has mounted, as the platform APIs describe it. Read-only information. */
 data class AndroidVolume(
@@ -88,55 +87,21 @@ object AndroidVolumes {
     }
 }
 
-/** What this phone offers: USB host, root, and the disk tools Android ships. */
+/** What this phone offers for external drives. */
 data class PlatformInfo(
     val androidVersion: String,
     val sdk: Int,
     val device: String,
     val abi: String,
     val usbHost: Boolean,
-    /** Paths where an su binary exists (doesn't mean it grants root). */
-    val suBinaries: List<String>,
-    /** Tool name to path, for the tools root operations would use. */
-    val tools: Map<String, String?>,
 )
 
-sealed class RootCheck {
-    object NotChecked : RootCheck()
-    object Checking : RootCheck()
-    data class Granted(val detail: String) : RootCheck()
-    data class Denied(val reason: String) : RootCheck()
-}
-
 object Platform {
-    private val SU_PATHS = listOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/su/bin/su", "/system/sbin/su", "/vendor/bin/su", "/debug_ramdisk/su")
-    private val TOOL_DIRS = listOf("/system/bin", "/system/xbin", "/vendor/bin", "/system_ext/bin")
-    val TOOLS = listOf("mke2fs", "e2fsck", "resize2fs", "make_f2fs", "fsck.f2fs", "newfs_msdos", "fsck_msdos", "sgdisk", "blkid")
-
     fun read(context: Context): PlatformInfo = PlatformInfo(
         androidVersion = Build.VERSION.RELEASE ?: "?",
         sdk = Build.VERSION.SDK_INT,
         device = listOf(Build.MANUFACTURER, Build.MODEL).filter { !it.isNullOrBlank() }.distinct().joinToString(" "),
         abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "?",
         usbHost = context.packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST),
-        suBinaries = SU_PATHS.filter { File(it).exists() },
-        tools = TOOLS.associateWith { t -> TOOL_DIRS.map { "$it/$t" }.firstOrNull { File(it).exists() } },
     )
-
-    /**
-     * Asks su for root. Shows the root manager's prompt, so it only runs when the person taps the
-     * button for it. Runs `id` and nothing else.
-     */
-    fun checkRoot(): RootCheck = try {
-        val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
-        if (!p.waitFor(20, TimeUnit.SECONDS)) {
-            p.destroy()
-            RootCheck.Denied("No answer from su within 20 seconds")
-        } else {
-            val out = p.inputStream.bufferedReader().readText().trim()
-            if (p.exitValue() == 0 && out.contains("uid=0")) RootCheck.Granted(out.substringBefore(' ')) else RootCheck.Denied(out.ifEmpty { "su refused (exit ${p.exitValue()})" })
-        }
-    } catch (e: Exception) {
-        RootCheck.Denied("No su binary could be run")
-    }
 }

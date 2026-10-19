@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -24,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.github.ravenor907.ravendisk.backend.RootCheck
 import io.github.ravenor907.ravendisk.core.fs.FsOp
 import io.github.ravenor907.ravendisk.core.fs.FsSupport
 import io.github.ravenor907.ravendisk.core.fs.FsType
@@ -64,8 +64,7 @@ fun VolumeScreen(m: AppModel, id: String) {
         }
         Gap(12)
         Banner(
-            if (v.primary) "This is the phone's own storage. Raven never writes to it: its partitions belong to Android, and changing them can make the phone unbootable."
-            else "Android has this volume mounted. To partition or format a USB drive with Raven, eject it in Settings first and it appears under USB drives.",
+            "Android has this drive mounted. To work on it with Raven, eject it in Settings first; it then shows up under Drives.",
             Tone.INFO,
         )
         Gap(12)
@@ -86,42 +85,27 @@ fun VolumeScreen(m: AppModel, id: String) {
 fun CapabilitiesScreen(m: AppModel) {
     val p = m.platform
     Page {
-        TopBar("Capabilities", "What this phone lets Raven do", onBack = { m.pop() })
+        TopBar("About this phone", "What Raven can do here", onBack = { m.pop() })
         Panel {
-            Txt("THIS DEVICE", Raven.section)
-            Gap(6)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RavenMark(Modifier.size(width = 34.dp, height = 34.dp))
+                HGap(14)
+                Column(Modifier.weight(1f)) {
+                    Txt("External drives only", Raven.h2)
+                    Txt("Raven works on drives you plug in over USB. It never changes your phone's own storage, and it never asks for root.", Raven.small)
+                }
+            }
+        }
+        Gap(12)
+        Panel {
             if (p == null) Txt("Reading…", Raven.hint) else {
                 KeyValue("Device", p.device)
                 KeyValue("Android", "${p.androidVersion} (API ${p.sdk})")
-                KeyValue("Processor ABI", p.abi)
-                KeyValue("USB host", if (p.usbHost) "Available" else "Not available", valueColor = if (p.usbHost) Raven.Good else Raven.Warn)
-                KeyValue("su binary", if (p.suBinaries.isEmpty()) "Not found" else p.suBinaries.joinToString())
-            }
-        }
-        SectionTitle("Access paths")
-        Panel {
-            PathRow("USB drives, directly", p?.usbHost != false, "Raven talks to USB drives itself (SCSI over USB, no root). Partition tables, FAT32, exFAT and swap, labels, erase and SMART on SATA bridges. Needs Bulk-Only Transport; UAS-only enclosures aren't reachable.")
-            PathRow("Android's volumes", true, "Capacity, free space and filesystem for internal storage, SD cards and mounted USB drives. Read-only.")
-            val rootLine = when (val r = m.root) {
-                RootCheck.NotChecked -> if (p?.suBinaries?.isNotEmpty() == true) "An su binary is present. Tap below to ask for root." else "No su binary found."
-                RootCheck.Checking -> "Waiting for the root prompt…"
-                is RootCheck.Granted -> "Root granted (${r.detail}). Raven doesn't need it for external drives and doesn't use it."
-                is RootCheck.Denied -> "Root not available: ${r.reason}"
-            }
-            PathRow("Root", m.root is RootCheck.Granted, rootLine)
-            if (m.root !is RootCheck.Granted && m.root !is RootCheck.Checking) {
-                Gap(8)
-                QuietButton("Check root access", Modifier.fillMaxWidth()) { m.checkRoot() }
-                Gap(4)
-                Txt("Runs \"su -c id\" once, which shows your root manager's prompt. Nothing else runs as root.", Raven.small)
-            }
-        }
-        if (p != null) {
-            SectionTitle("Disk tools on this phone")
-            Panel {
-                p.tools.forEach { (tool, path) -> KeyValue(tool, path ?: "Not found", valueColor = if (path != null) Raven.Bone else Raven.Mist, mono = path != null) }
-                Gap(4)
-                Txt("Android ships some of these for its own use. They can only run against drives with root.", Raven.small)
+                KeyValue(
+                    "USB drives", if (p.usbHost) "Supported" else "Not supported on this device",
+                    note = if (p.usbHost) "Through a USB-C port, adapter or hub" else "This phone doesn't let apps talk to USB devices",
+                    valueColor = if (p.usbHost) Raven.Good else Raven.Warn,
+                )
             }
         }
         SectionTitle("Filesystems")
@@ -132,22 +116,22 @@ fun CapabilitiesScreen(m: AppModel) {
                 ops.forEach { Txt(it.label, Raven.small.copy(textAlign = TextAlign.Center), Modifier.weight(1f)) }
             }
             Gap(6)
-            val shown = listOf(FsType.EXFAT, FsType.FAT32, FsType.FAT16, FsType.SWAP, FsType.EXT4, FsType.EXT3, FsType.EXT2, FsType.NTFS, FsType.BTRFS, FsType.XFS, FsType.F2FS, FsType.UDF)
+            val shown = listOf(FsType.EXFAT, FsType.FAT32, FsType.EXT4, FsType.SWAP, FsType.NTFS, FsType.FAT16, FsType.EXT3, FsType.EXT2, FsType.BTRFS, FsType.XFS, FsType.F2FS)
             shown.forEach { fs ->
                 Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                     Txt(fs.label, Raven.body.copy(fontSize = Raven.hint.fontSize), Modifier.weight(1.4f))
                     ops.forEach { op ->
                         val (mark, color) = when (FsSupport.of(fs, op)) {
                             Support.Native -> "✓" to Raven.Good
-                            is Support.NeedsTool -> "root" to Raven.Ash
+                            is Support.Planned -> "Soon" to Raven.Ash
                             is Support.No -> "—" to Raven.Mist
                         }
-                        Txt(mark, Raven.body.copy(color = color, textAlign = TextAlign.Center), Modifier.weight(1f))
+                        Txt(mark, Raven.body.copy(color = color, textAlign = TextAlign.Center, fontSize = Raven.hint.fontSize), Modifier.weight(1f))
                     }
                 }
             }
             Gap(8)
-            Txt("✓ built into Raven and available now. \"root\" means only the phone's own system tools can do it today; Raven's own version is on the way. Every filesystem in the list can be inspected (type, label, ID, size).", Raven.small)
+            Txt("Every filesystem listed can be inspected: type, label, ID and size.", Raven.small)
         }
         SectionTitle("Try it safely")
         Panel {
@@ -159,22 +143,11 @@ fun CapabilitiesScreen(m: AppModel) {
                 HGap(12)
                 Column(Modifier.weight(1f)) {
                     Txt("Show simulated drives", Raven.body)
-                    Txt("Three made-up drives that live in memory, for trying every operation with nothing at stake.", Raven.small)
+                    Txt("Three made-up drives that live in memory, for trying everything with nothing at stake.", Raven.small)
                 }
             }
         }
         Gap(20)
-    }
-}
-
-@Composable
-private fun PathRow(title: String, on: Boolean, detail: String) {
-    Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
-        Txt(if (on) "●" else "○", Raven.body.copy(color = if (on) Raven.Good else Raven.Mist), Modifier.width(22.dp))
-        Column(Modifier.weight(1f)) {
-            Txt(title, Raven.body)
-            Txt(detail, Raven.small)
-        }
     }
 }
 

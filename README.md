@@ -9,8 +9,8 @@
 A partition manager for your phone. Plug in a USB drive, SSD, hard drive or card reader and do
 what you'd normally need a PC with GParted or GNOME Disks for.
 
-No root needed for USB drives. No pretend buttons either: if something can't be done on your
-phone, the app says why.
+External drives only: it never touches your phone's own storage and never needs root. No pretend
+buttons either: if something can't be done, the app says why.
 
 ## What it does
 
@@ -29,7 +29,7 @@ phone, the app says why.
   Then the app checks it's still the same drive, writes, and reads everything back.
 
 It also reads (but doesn't create yet) NTFS, Btrfs, XFS, F2FS, UDF, LUKS, BitLocker and a
-few others, and shows the phone's own storage, SD card and Android-mounted drives.
+few others.
 
 ## Get it
 

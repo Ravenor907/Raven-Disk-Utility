@@ -9,7 +9,6 @@ import io.github.ravenor907.ravendisk.RavenApp
 import io.github.ravenor907.ravendisk.backend.Drives
 import io.github.ravenor907.ravendisk.backend.Platform
 import io.github.ravenor907.ravendisk.backend.PlatformInfo
-import io.github.ravenor907.ravendisk.backend.RootCheck
 import io.github.ravenor907.ravendisk.core.plan.Outcome
 import io.github.ravenor907.ravendisk.core.plan.Planner
 import io.github.ravenor907.ravendisk.core.plan.TextJournal
@@ -49,8 +48,6 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
     var refreshing by mutableStateOf(false)
         private set
     var platform by mutableStateOf<PlatformInfo?>(null)
-        private set
-    var root by mutableStateOf<RootCheck>(RootCheck.NotChecked)
         private set
     var interrupted by mutableStateOf<TextJournal.Run?>(null)
         private set
@@ -120,13 +117,6 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
     fun acknowledgeInterrupted() {
         scope.launch(Dispatchers.IO) { journal.acknowledgeInterrupted() }
         interrupted = null
-    }
-
-    fun checkRoot() {
-        root = RootCheck.Checking
-        scope.launch {
-            root = withContext(Dispatchers.IO) { Platform.checkRoot() }
-        }
     }
 
     /** Starts the queued plan for [key]. The run screen follows it. */

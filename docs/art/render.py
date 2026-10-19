@@ -50,13 +50,24 @@ body{{font-family:Inter,sans-serif;color:{BONE};-webkit-font-smoothing:antialias
 .phone img{{display:block;border-radius:36px;width:100%}}
 """
 
-# The app icon: a drive split into partitions, the first one lit (same shapes as the launcher icon).
+# The app icon: a dark USB stick with the perched raven decal (same shapes as the launcher icon).
+RAVEN = "M2,34 L13,26.5 L24,20.5 L30,15.6 L37,14.8 L43,18 L50,26 C58,33 68,45 78,58 L91,76 L99,93 L92,90.5 L94.5,97 L85,90 L73,83 C70,85 66,86 63,86 L62,92.5 L65.5,95.5 L58.5,95.5 L58,86.3 L54.6,86 L54,93 L57.5,96 L50.5,96 L50.5,85.4 L43,82.5 L35.5,73.5 L31.4,63 L30,56 L25,53.5 L29.2,50.6 L22.6,47.6 L27,44.6 L21,42 L24.6,39.4 L21.4,36.4 L5,35.6 Z"
 MARK = f"""
-<svg viewBox="23 36 62 36" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{AURORA_A}"/><stop offset="1" stop-color="{AURORA_B}"/></linearGradient></defs>
-  <path fill="url(#m)" d="M30,38 h22 v32 h-22 a5,5 0 0 1 -5,-5 v-22 a5,5 0 0 1 5,-5 z"/>
-  <path fill="#3A4350" d="M55,38 h11 v32 h-11 z"/>
-  <path fill="#5A6574" d="M69,38 h9 a5,5 0 0 1 5,5 v22 a5,5 0 0 1 -5,5 h-9 z"/>
+<svg viewBox="14 30 80 48" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{AURORA_A}"/><stop offset="1" stop-color="{AURORA_B}"/></linearGradient>
+    <linearGradient id="mb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#323A45"/><stop offset="1" stop-color="#1E242B"/></linearGradient>
+    <linearGradient id="mm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9D1DA"/><stop offset="1" stop-color="#8A95A2"/></linearGradient>
+  </defs>
+  <path fill="url(#mm)" d="M72,44 h13 a2,2 0 0 1 2,2 v16 a2,2 0 0 1 -2,2 h-13 z"/>
+  <path fill="{NIGHT}" d="M77,48.5 h5 v3.5 h-5 z M77,56 h5 v3.5 h-5 z"/>
+  <rect x="21" y="36" width="52" height="36" rx="7" fill="url(#mb)"/>
+  <rect x="21.75" y="36.75" width="50.5" height="34.5" rx="6.3" fill="none" stroke="url(#m)" stroke-opacity="0.55" stroke-width="1.5"/>
+  <g transform="translate(28.6,34.4) scale(0.355)">
+    <path fill="url(#m)" d="{RAVEN}"/>
+    <circle cx="33" cy="22.6" r="1.9" fill="#262D36"/>
+    <path d="M46,35 L61,50 L79,73" stroke="#262D36" stroke-width="1.6" fill="none"/>
+  </g>
 </svg>"""
 
 
@@ -94,7 +105,7 @@ def banner(w=1280, h=440, social=False):
 .grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:40px 40px;
   -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.9),transparent 70%)}}
 .left{{position:absolute;left:72px;top:{(h - 330) // 2}px;width:640px}}
-.mark{{width:118px;height:68px;filter:drop-shadow(0 0 22px rgba(111,211,255,.45))}}
+.mark{{width:150px;height:90px;filter:drop-shadow(0 0 22px rgba(111,211,255,.45))}}
 h1{{font-family:InterDisplay;font-weight:800;font-size:{70 if social else 64}px;letter-spacing:-1.5px;line-height:1.02;margin-top:22px}}
 .tag{{color:{ASH};font-size:{24 if social else 21}px;line-height:1.4;margin-top:14px;max-width:580px}}
 .chips{{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px}}

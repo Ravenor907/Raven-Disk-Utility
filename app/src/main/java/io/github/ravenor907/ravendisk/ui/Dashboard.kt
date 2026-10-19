@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,12 +32,14 @@ fun DashboardScreen(m: AppModel) {
     val ctx = LocalContext.current
     Page {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            RavenMark(Modifier.size(width = 40.dp, height = 40.dp))
+            HGap(12)
             Column(Modifier.weight(1f)) {
                 Txt("RAVEN DISK UTILITY", Raven.brand)
-                Gap(4)
+                Gap(2)
                 Txt("Drives", Raven.title)
             }
-            LinkButton("Capabilities") { m.push(Screen.Capabilities) }
+            LinkButton("About") { m.push(Screen.Capabilities) }
             LinkButton("Log") { m.push(Screen.Log) }
         }
         Gap(10)
@@ -60,7 +63,7 @@ fun DashboardScreen(m: AppModel) {
         }
 
         val usbDrives = drives.filter { !it.simulated }
-        SectionTitle("USB drives", trailing = { if (m.refreshing) Txt("Reading…", Raven.small) else LinkButton("Refresh") { m.refresh() } })
+        SectionTitle("External drives", trailing = { if (m.refreshing) Txt("Reading…", Raven.small) else LinkButton("Refresh") { m.refresh() } })
         if (!m.drives.usbAvailable || m.platform?.usbHost == false) {
             Banner("This device doesn't offer USB host mode to apps, so USB drives can't be opened here. Volume info below still works.", Tone.WARN)
             Gap(10)
@@ -79,16 +82,21 @@ fun DashboardScreen(m: AppModel) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { sims.forEach { DriveCard(it, m) } }
         }
 
-        SectionTitle("On this phone")
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            volumes.forEach { v -> VolumeCard(v) { m.push(Screen.Volume(v.id)) } }
-            if (volumes.isEmpty()) EmptySlot("Android didn't list any storage volumes")
+        val androidMounted = volumes.filter { it.removable && it.mounted }
+        if (androidMounted.isNotEmpty()) {
+            SectionTitle("Mounted by Android")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                androidMounted.forEach { v -> VolumeCard(v) { m.push(Screen.Volume(v.id)) } }
+            }
+            Gap(8)
+            Txt("Eject these in Settings to work on them here.", Raven.small)
         }
-        Gap(10)
-        Txt(
-            "Android manages these; they're shown for reference. Raven works on external drives plugged in over USB.",
-            Raven.small,
-        )
+        Gap(18)
+        Row(verticalAlignment = Alignment.Top) {
+            Txt("●", Raven.small.copy(color = Raven.Good))
+            HGap(8)
+            Txt("Raven only works on drives you plug in. It never changes your phone's own storage, and nothing is written until you review and confirm.", Raven.small, Modifier.weight(1f))
+        }
         Gap(20)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Txt("Version ${BuildConfig.VERSION_NAME}", Raven.small, Modifier.weight(1f))
