@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="night">#14181D</color>
-    <color name="ic_background">#14181D</color>
+    <color name="night">#020F2A</color>
 </resources>

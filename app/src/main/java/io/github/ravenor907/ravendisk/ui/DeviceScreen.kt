@@ -23,10 +23,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.ravenor907.ravendisk.backend.Drive
+import io.github.ravenor907.ravendisk.backend.Drives
 import io.github.ravenor907.ravendisk.core.fs.FsSupport
 import io.github.ravenor907.ravendisk.core.health.HealthReport
 import io.github.ravenor907.ravendisk.core.health.HealthStatus
@@ -158,12 +160,11 @@ private fun Header(m: AppModel, d: Drive, p: Planner) {
         listOfNotNull(i.capacityBytes.valueOrNull?.let { Units.size(it) }, i.connection.label, i.media.valueOrNull?.label).joinToString(" · "),
         onBack = { m.pop() },
     ) {
-        if (d.simulated) Tag("Simulated", Raven.AuroraA)
+        if (d.simulated) Tag("Simulated", Raven.CopperHi)
     }
     val notes = ArrayList<Pair<String, Tone>>()
     if (p.snap.readOnly) notes.add("This drive is write-protected. Check for a lock switch on the drive or card." to Tone.WARN)
-    if (p.snap.deviceMounted) notes.add("Android is using the filesystem on this drive. Eject it in Settings before changing it." to Tone.WARN)
-    if (p.snap.mounted.isNotEmpty()) notes.add("Android has partition ${p.snap.mounted.joinToString()} mounted. Those can't be changed until it's ejected." to Tone.WARN)
+    UnmountCard(m, d, p)
     when (val t = p.snap.table) {
         is TableRead.Found -> {
             if (t.table.damaged) notes.add("The partition table is damaged: ${t.table.issues.first()}. Changes are blocked until a new table is created." to Tone.DANGER)
@@ -180,6 +181,53 @@ private fun Header(m: AppModel, d: Drive, p: Planner) {
     }
 }
 
+/** Shown while Android lists the drive as mounted: one tap takes it over. */
+@Composable
+private fun UnmountCard(m: AppModel, d: Drive, p: Planner) {
+    val state = m.unmounting?.takeIf { it.first == d.key }
+    val mounted = p.snap.deviceMounted || p.snap.mounted.isNotEmpty()
+    val ctx = LocalContext.current
+    if (!mounted) {
+        if (state?.second == Drives.Unmount.DONE) {
+            Banner("Unmounted. Android has let go of this drive, so it can be formatted or changed.", Tone.GOOD)
+            Gap(8)
+        }
+        return
+    }
+    val what = if (p.snap.deviceMounted) "this drive" else "partition ${p.snap.mounted.joinToString()}"
+    when (state?.second) {
+        null -> if (state != null) {
+            Banner("Unmounting. Waiting for Android to let go of the drive...", Tone.INFO)
+        } else {
+            Banner(
+                "Android has $what mounted, so it can't be formatted or changed yet. " +
+                    "Unmount it here first. If you were copying files to it, let that finish before you unmount.",
+                Tone.WARN,
+            ) {
+                PrimaryButton("Unmount", Modifier.weight(1f)) { m.unmount(d.key) }
+            }
+        }
+        Drives.Unmount.STILL_LISTED -> Banner(
+            "Raven now has the drive to itself, so Android can no longer read or write it, but Android still lists it as mounted. " +
+                "You can treat it as unmounted, or eject it in Android's storage settings and come back.",
+            Tone.WARN,
+        ) {
+            PrimaryButton("Unmount anyway", Modifier.weight(1f)) { m.unmountAnyway(d.key) }
+            QuietButton("Settings", Modifier.weight(1f)) {
+                try {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
+                } catch (e: Exception) {
+                }
+            }
+        }
+        Drives.Unmount.NOT_OPEN -> Banner("Raven isn't connected to this drive right now, so it can't unmount it. Go back and open the drive again.", Tone.DANGER)
+        Drives.Unmount.DONE -> Banner("Android still has $what mounted.", Tone.WARN) {
+            PrimaryButton("Try again", Modifier.weight(1f)) { m.unmount(d.key) }
+        }
+    }
+    Gap(8)
+}
+
 @Composable
 private fun LayoutPanel(d: Drive, p: Planner, state: PlanState, selected: String?, onSelect: (String) -> Unit) {
     val bs = p.snap.blockSize
@@ -190,7 +238,7 @@ private fun LayoutPanel(d: Drive, p: Planner, state: PlanState, selected: String
                 state.table?.let { "${it.kind.label} partition table" } ?: if (state.wholeErase != null) "Whole drive erased" else "No partition table",
                 Raven.h2, Modifier.weight(1f),
             )
-            if (p.queue.isNotEmpty()) Tag("Planned", Raven.AuroraA) else Tag("Current", Raven.Ash)
+            if (p.queue.isNotEmpty()) Tag("Planned", Raven.CopperHi) else Tag("Current", Raven.Ash)
         }
         Gap(12)
         PartitionMap(segs, p.snap.blockCount, selected, onSelect = onSelect)
@@ -208,7 +256,7 @@ private fun LayoutPanel(d: Drive, p: Planner, state: PlanState, selected: String
 private fun SegmentRow(s: io.github.ravenor907.ravendisk.ui.Segment, bs: Int, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     var mod = Modifier.fillMaxWidth().clip(shape)
-    if (selected) mod = mod.background(Raven.IronHi).border(1.dp, Raven.AuroraA.copy(alpha = 0.6f), shape)
+    if (selected) mod = mod.background(Raven.IronHi).border(1.dp, Raven.CopperHi.copy(alpha = 0.6f), shape)
     Row(mod.clickable(role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Swatch(segmentColor(s), s.free)
         HGap(12)
@@ -234,9 +282,9 @@ private fun SegmentRow(s: io.github.ravenor907.ravendisk.ui.Segment, bs: Int, se
 @Composable
 private fun changeTag(v: PlannedVolume) {
     when (v.change) {
-        VolumeChange.NEW -> Tag("New", Raven.AuroraA)
+        VolumeChange.NEW -> Tag("New", Raven.CopperHi)
         VolumeChange.FORMATTED -> Tag("Format", Raven.Warn)
-        VolumeChange.MODIFIED -> Tag("Changed", Raven.AuroraA)
+        VolumeChange.MODIFIED -> Tag("Changed", Raven.CopperHi)
         VolumeChange.ERASED -> Tag("Erase", Raven.Danger)
         VolumeChange.KEPT -> {}
     }

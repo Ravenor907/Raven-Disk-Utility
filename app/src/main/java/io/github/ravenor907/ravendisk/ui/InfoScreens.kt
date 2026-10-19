@@ -64,7 +64,7 @@ fun VolumeScreen(m: AppModel, id: String) {
         }
         Gap(12)
         Banner(
-            "Android has this drive mounted. To work on it with Raven, eject it in Settings first; it then shows up under Drives.",
+            "Android has this drive mounted. To work on it, open the drive under Drives and tap Unmount.",
             Tone.INFO,
         )
         Gap(12)

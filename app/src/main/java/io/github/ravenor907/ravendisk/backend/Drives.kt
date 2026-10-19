@@ -136,6 +136,65 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
         drive(key)?.usbName?.let { usb.device(it) }?.let { usb.requestPermission(it) }
     }
 
+    /** Drives the person unmounted from Android while Android's list still showed them as mounted. */
+    private val released = HashSet<String>()
+
+    enum class Unmount { DONE, STILL_LISTED, NOT_OPEN }
+
+    /**
+     * Takes the drive away from Android. Raven already holds the drive's USB interface (claimed
+     * with force, which detaches Android's own storage driver), so Android can no longer read or
+     * write it; this waits for Android to notice and drop its mount, then reads the drive again.
+     * Blocking: call from a background thread.
+     */
+    fun unmount(key: String, timeoutMs: Long = 8000): Unmount {
+        val d = drive(key) ?: return Unmount.NOT_OPEN
+        val name = d.usbName ?: return Unmount.NOT_OPEN
+        if (synchronized(this) { connections[name] } == null) return Unmount.NOT_OPEN
+        val uuids = mountedUuidsOf(d)
+        val deadline = android.os.SystemClock.elapsedRealtime() + timeoutMs
+        var clear = false
+        while (true) {
+            val vols = try { AndroidVolumes.list(context) } catch (e: Exception) { emptyList() }
+            clear = vols.none { it.mounted && it.uuid?.uppercase() in uuids }
+            if (clear || android.os.SystemClock.elapsedRealtime() > deadline) break
+            Thread.sleep(400)
+        }
+        refresh(setOf(key))
+        return if (clear) Unmount.DONE else Unmount.STILL_LISTED
+    }
+
+    /** Android still lists the drive, but Raven holds it; the person chose to treat that entry as stale. */
+    fun unmountAnyway(key: String) {
+        synchronized(this) { released.add(key) }
+        refresh(setOf(key))
+    }
+
+    private val justTaken = HashSet<String>()
+
+    private fun wasMountedJustNow(name: String) = justTaken.remove(name)
+
+    /** Opening detached Android's storage driver; give Android a moment to drop its mount. */
+    private fun waitForAndroidToLetGo(before: List<AndroidVolume>): List<AndroidVolume> {
+        var vols = before
+        val deadline = android.os.SystemClock.elapsedRealtime() + 4000
+        while (vols.any { it.mounted && it.looksLikeUsb } && android.os.SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(400)
+            vols = try { AndroidVolumes.list(context) } catch (e: Exception) { vols }
+        }
+        _volumes.value = vols
+        return vols
+    }
+
+    private fun mountedUuidsOf(d: Drive): Set<String> {
+        val ins = d.inspection ?: return emptySet()
+        val snap = d.snapshot ?: return emptySet()
+        val out = HashSet<String>()
+        snap.mounted.forEach { n -> ins.fs[n]?.uuid?.uppercase()?.let(out::add) }
+        if (snap.deviceMounted) ins.wholeDeviceFs?.uuid?.uppercase()?.let(out::add)
+        return out
+    }
+
     /** The person chose to open a drive Android may have mounted. */
     fun force(key: String) = synchronized(this) { drive(key)?.usbName?.let { forced.add(it) } }
 
@@ -159,6 +218,7 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
                 } catch (e: Exception) {
                 }
                 sessions.keys.filter { it.startsWith("usb:$k#") }.forEach { sessions.remove(it); planners.remove(it) }
+                released.removeAll { it.startsWith("usb:$k#") }
             }
             forced.retainAll(names)
             for (d in present) out.addAll(usbDrives(d, vols, reinspect))
@@ -174,7 +234,8 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
         android.util.Log.i(TAG, "refresh: ${out.size} drive(s), ${vols.size} volume(s) in ${android.os.SystemClock.elapsedRealtime() - started} ms")
     }
 
-    private fun usbDrives(d: UsbDevice, vols: List<AndroidVolume>, reinspect: Set<String>): List<Drive> {
+    private fun usbDrives(d: UsbDevice, volsIn: List<AndroidVolume>, reinspect: Set<String>): List<Drive> {
+        var vols = volsIn
         val name = d.deviceName
         val key = "usb:$name"
         val title = UsbBackend.label(d)
@@ -186,8 +247,9 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
         if (conn == null) {
             val androidUsb = vols.filter { it.mounted && it.looksLikeUsb }
             if (androidUsb.isNotEmpty() && name !in forced) {
-                return listOf(Drive("$key#0", title, DriveState.ANDROID_MOUNTED, "Android has \"${androidUsb.first().description}\" mounted. Opening it here disconnects it from Android, like pulling it out.", usbName = name))
+                return listOf(Drive("$key#0", title, DriveState.ANDROID_MOUNTED, "Android has \"${androidUsb.first().description}\" mounted. Unmount and open takes it from Android so Raven can work on it. If you were copying files to it, let that finish first.", usbName = name))
             }
+            if (androidUsb.isNotEmpty()) justTaken.add(name)
             conn = try {
                 usb.open(d).also { connections[name] = it }
             } catch (e: UsbOpenException) {
@@ -196,6 +258,7 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
                 return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = UsbBackend.describe(d, context)))
             }
         }
+        if (wasMountedJustNow(name)) vols = waitForAndroidToLetGo(vols)
         val multi = conn.luns.size > 1
         return conn.luns.map { lun ->
             val k = "$key#${lun.index}"
@@ -233,7 +296,7 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
                 else -> unavailable("The drive doesn't say")
             }
             val ident = DiskIdentity.of(disk, key, "${id.vendor} ${id.product}".trim(), id.serial)
-            val mountedUuids = vols.filter { it.mounted }.mapNotNull { it.uuid?.uppercase() }.toSet()
+            val mountedUuids = if (key in released) emptySet() else vols.filter { it.mounted }.mapNotNull { it.uuid?.uppercase() }.toSet()
             val mountedParts = ins.fs.filter { (_, f) -> f?.uuid?.uppercase() in mountedUuids }.keys
             val wholeMounted = ins.wholeDeviceFs?.uuid?.uppercase()?.let { it in mountedUuids } == true
             val info = DiskInfo(

@@ -9,25 +9,27 @@ import androidx.compose.ui.unit.sp
 import io.github.ravenor907.ravendisk.core.fs.FsType
 
 /**
- * Raven's palette: Handheld Forge's slate-and-iron neutrals with a cold "aurora" accent in place
- * of the forge's molten one. Dark only, by design.
+ * Raven's palette, taken from the app icon: a night-navy sky, the charcoal body of the stick,
+ * the copper raven and the silver plug. Dark only, by design.
  */
 object Raven {
-    val Night = Color(0xFF14181D)
-    val Slate = Color(0xFF1B2026)
-    val Iron = Color(0xFF242A32)
-    val IronHi = Color(0xFF2C333C)
-    val Seam = Color(0xFF353D47)
-    val Mist = Color(0xFF6B7684)
-    val Ash = Color(0xFF98A2AE)
-    val Bone = Color(0xFFECEFF2)
-    val AuroraA = Color(0xFF6FD3FF)
-    val AuroraB = Color(0xFF8B7CFF)
-    val Danger = Color(0xFFF07167)
+    val Night = Color(0xFF020F2A)
+    val NightLow = Color(0xFF041B42)
+    val Slate = Color(0xFF1C1D21)
+    val Iron = Color(0xFF242428)
+    val IronHi = Color(0xFF2E2F34)
+    val Seam = Color(0xFF3B3D45)
+    val Mist = Color(0xFF7C818C)
+    val Ash = Color(0xFFAEB0B5)
+    val Bone = Color(0xFFF2EFEB)
+    val CopperHi = Color(0xFFE38D58)
+    val Copper = Color(0xFFCD7545)
+    val Danger = Color(0xFFEF5B5B)
     val Warn = Color(0xFFF5B83D)
     val Good = Color(0xFF5FD39A)
-    val Ink = Color(0xFF0E1116)
-    val aurora = Brush.horizontalGradient(listOf(AuroraA, AuroraB))
+    val Ink = Color(0xFF170D07)
+    val accent = Brush.horizontalGradient(listOf(CopperHi, Copper))
+    val sky = Brush.verticalGradient(listOf(Night, NightLow))
 
     val brand = TextStyle(color = Ash, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp)
     val title = TextStyle(color = Bone, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, lineHeight = 32.sp)

@@ -20,8 +20,8 @@ android {
         applicationId = "io.github.ravenor907.ravendisk"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.4.1"
+        versionCode = 10
+        versionName = "0.4.2"
     }
 
     signingConfigs {

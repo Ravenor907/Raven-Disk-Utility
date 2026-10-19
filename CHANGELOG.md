@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2
+
+- **Unmount from the app.** When Android has a drive mounted, the drive page shows an **Unmount** button. No more trips to Settings before formatting.
+- On the drive list, **Unmount and open** takes a drive from Android and opens it in one step.
+- Fixed: a drive could still show as "mounted by Android" after Raven had already taken it over, which blocked formatting.
+- New look from the app icon: night-navy background, charcoal panels, copper accents. The raven emblem sits in the header.
+- New app icon.
+
 ## 0.4.1
 - Includes the 0.4.0 changes below (0.4.0 itself never shipped because of a build error).
 - Raven no longer pops up when a USB drive is plugged in. Open it yourself when you want it; drives plugged in while it's open still show up right away.

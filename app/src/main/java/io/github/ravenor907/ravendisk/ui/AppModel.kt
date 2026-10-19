@@ -54,6 +54,10 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
     var simulated by mutableStateOf(drives.demo)
         private set
 
+    /** Unmount progress for one drive: key to result (null result = working on it). */
+    var unmounting by mutableStateOf<Pair<String, Drives.Unmount?>?>(null)
+        private set
+
     fun push(s: Screen) {
         stack = stack + s
     }
@@ -107,6 +111,26 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
     }
 
     fun requestPermission(key: String) = drives.requestPermission(key)
+
+    /** Takes the drive away from Android so its partitions can be changed. */
+    fun unmount(key: String) {
+        if (Runner.busy || unmounting?.second == null && unmounting != null) return
+        unmounting = key to null
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { drives.unmount(key) }
+            planChanged()
+            unmounting = key to r
+        }
+    }
+
+    fun unmountAnyway(key: String) {
+        unmounting = key to null
+        scope.launch {
+            withContext(Dispatchers.IO) { drives.unmountAnyway(key) }
+            planChanged()
+            unmounting = key to Drives.Unmount.DONE
+        }
+    }
 
     fun showSimulated(on: Boolean) {
         drives.demo = on

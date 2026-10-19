@@ -1,7 +1,9 @@
+<p align="center"><img src="docs/art/banner.png" alt="Raven Disk Utility" width="100%"></p>
+
 <p align="center">
-  <a href="https://github.com/Ravenor907/Raven-Disk-Utility/releases"><img src="https://img.shields.io/github/v/release/Ravenor907/Raven-Disk-Utility?include_prereleases&label=Android%20APK&style=for-the-badge&color=8B7CFF&labelColor=14181D" alt="Android APK"></a>
-  <a href="https://github.com/Ravenor907/Raven-Disk-Utility/actions/workflows/android.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ravenor907/Raven-Disk-Utility/android.yml?branch=main&label=tests&style=for-the-badge&labelColor=14181D" alt="Tests"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-6FD3FF?style=for-the-badge&labelColor=14181D" alt="GPL-3.0"></a>
+  <a href="https://github.com/Ravenor907/Raven-Disk-Utility/releases"><img src="https://img.shields.io/github/v/release/Ravenor907/Raven-Disk-Utility?include_prereleases&label=Android%20APK&style=for-the-badge&color=CD7545&labelColor=020F2A" alt="Android APK"></a>
+  <a href="https://github.com/Ravenor907/Raven-Disk-Utility/actions/workflows/android.yml"><img src="https://img.shields.io/github/actions/workflow/status/Ravenor907/Raven-Disk-Utility/android.yml?branch=main&label=tests&style=for-the-badge&labelColor=020F2A" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-AEB0B5?style=for-the-badge&labelColor=020F2A" alt="GPL-3.0"></a>
 </p>
 
 # Raven Disk Utility
@@ -27,6 +29,7 @@ buttons either: if something can't be done, the app says why.
 ## What it does
 
 - **Format drive**, right at the top: exFAT, FAT32 or ext4, an optional name, then review.
+- **Unmount from Android** with one tap, so a drive Android is using can be formatted right away.
 - **Format, rename or delete a single partition** by tapping it on the partition map.
 - **See everything:** partition table, partitions, filesystems, labels, sizes, alignment, free space,
   health. Reads NTFS, Btrfs, XFS, F2FS, UDF, LUKS, BitLocker and more.

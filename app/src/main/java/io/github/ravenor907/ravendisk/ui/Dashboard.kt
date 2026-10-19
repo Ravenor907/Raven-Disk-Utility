@@ -34,7 +34,15 @@ fun DashboardScreen(m: AppModel) {
     Page {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Txt("RAVEN DISK UTILITY", Raven.brand)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.foundation.Image(
+                        androidx.compose.ui.res.painterResource(io.github.ravenor907.ravendisk.R.drawable.ic_emblem),
+                        contentDescription = null,
+                        modifier = Modifier.size(width = 34.dp, height = 16.dp),
+                    )
+                    HGap(8)
+                    Txt("RAVEN DISK UTILITY", Raven.brand)
+                }
                 Gap(2)
                 Txt("Drives", Raven.title)
             }
@@ -77,7 +85,7 @@ fun DashboardScreen(m: AppModel) {
 
         val sims = drives.filter { it.simulated }
         if (sims.isNotEmpty()) {
-            SectionTitle("Simulated drives", trailing = { Tag("In memory only", Raven.AuroraA) })
+            SectionTitle("Simulated drives", trailing = { Tag("In memory only", Raven.CopperHi) })
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { sims.forEach { DriveCard(it, m) } }
         }
 
@@ -155,7 +163,7 @@ fun DriveCard(d: Drive, m: AppModel) {
                 val pending = planner?.queue?.size ?: 0
                 if (pending > 0) {
                     HGap(6)
-                    Tag("$pending pending", Raven.AuroraA)
+                    Tag("$pending pending", Raven.CopperHi)
                 }
             }
         }
@@ -172,7 +180,7 @@ fun DriveCard(d: Drive, m: AppModel) {
                         } catch (e: Exception) {
                         }
                     }
-                    QuietButton("Open anyway") { m.inspectAnyway(d.key) }
+                    PrimaryButton("Unmount and open") { m.inspectAnyway(d.key) }
                 }
             }
             DriveState.ERROR, DriveState.UNSUPPORTED -> {

@@ -99,7 +99,7 @@ fun PartitionMap(
                     }
                 }
                 if (s.key == selected) {
-                    drawRoundRect(Raven.aurora, tl, sz, radius, style = Stroke(3.dp.toPx()))
+                    drawRoundRect(Raven.accent, tl, sz, radius, style = Stroke(3.dp.toPx()))
                 }
             }
         }
@@ -151,7 +151,7 @@ fun Swatch(color: Color, free: Boolean = false, size: Dp = 14.dp) {
 fun DriveGlyph(kind: MediaKind?, hot: Boolean, size: Dp = 36.dp) {
     Canvas(Modifier.size(width = size, height = size * 0.75f)) {
         val u = this.size.width / 32f
-        val body: Brush = if (hot) Raven.aurora else SolidColor(Raven.Ash)
+        val body: Brush = if (hot) Raven.accent else SolidColor(Raven.Ash)
         val r = CornerRadius(3 * u)
         when (kind) {
             MediaKind.FLASH_DRIVE, null, MediaKind.UNKNOWN -> {
@@ -167,7 +167,7 @@ fun DriveGlyph(kind: MediaKind?, hot: Boolean, size: Dp = 36.dp) {
             MediaKind.HDD -> {
                 drawRoundRect(body, Offset(3 * u, 1 * u), Size(26 * u, 22 * u), CornerRadius(3 * u))
                 drawCircle(Raven.Night, 7 * u, Offset(16 * u, 11 * u))
-                drawCircle(if (hot) Raven.AuroraA else Raven.Ash, 1.8f * u, Offset(16 * u, 11 * u))
+                drawCircle(if (hot) Raven.CopperHi else Raven.Ash, 1.8f * u, Offset(16 * u, 11 * u))
             }
             MediaKind.NVME -> {
                 drawRoundRect(body, Offset(1 * u, 8 * u), Size(30 * u, 8 * u), CornerRadius(1.5f * u))
@@ -191,23 +191,4 @@ fun DriveGlyph(kind: MediaKind?, hot: Boolean, size: Dp = 36.dp) {
 /** Legend text for a filesystem (or none). */
 fun fsName(fs: FsType?): String = fs?.label ?: "No filesystem"
 
-private const val RAVEN_PATH = "M2,34 L13,26.5 L24,20.5 L30,15.6 L37,14.8 L43,18 L50,26 C58,33 68,45 78,58 L91,76 L99,93 L92,90.5 L94.5,97 L85,90 L73,83 C70,85 66,86 63,86 L62,92.5 L65.5,95.5 L58.5,95.5 L58,86.3 L54.6,86 L54,93 L57.5,96 L50.5,96 L50.5,85.4 L43,82.5 L35.5,73.5 L31.4,63 L30,56 L25,53.5 L29.2,50.6 L22.6,47.6 L27,44.6 L21,42 L24.6,39.4 L21.4,36.4 L5,35.6 Z"
 
-/** The raven head from the app icon, in the aurora gradient. */
-@Composable
-fun RavenMark(modifier: Modifier = Modifier, brush: Brush = Raven.aurora) {
-    val path = androidx.compose.runtime.remember { androidx.compose.ui.graphics.vector.PathParser().parsePathString(RAVEN_PATH).toPath() }
-    Canvas(modifier) {
-        // Source box: x 2..99, y 14.8..97 (the perched raven from the app icon).
-        val s = minOf(size.width / 97f, size.height / 82.2f)
-        val dx = (size.width - 97f * s) / 2f - 2f * s
-        val dy = (size.height - 82.2f * s) / 2f - 14.8f * s
-        withTransform({
-            translate(dx, dy)
-            scale(s, s, Offset.Zero)
-        }) {
-            drawPath(path, brush)
-            drawCircle(Raven.Night, 1.9f, Offset(33f, 22.6f))
-        }
-    }
-}

@@ -235,7 +235,7 @@ class Planner(val snap: DiskSnapshot) {
 
     private fun apply(s: PlanState, op: Op): PlanState {
         if (snap.readOnly) fail("The drive is write-protected")
-        if (snap.deviceMounted && op.destructive) fail("Android is using this drive. Eject it in Settings first.")
+        if (snap.deviceMounted && op.destructive) fail("Android has this drive mounted. Tap Unmount at the top of the drive page first.")
         return when (op) {
             is Op.NewTable -> newTable(op)
             is Op.Create -> create(s, op)
@@ -271,7 +271,7 @@ class Planner(val snap: DiskSnapshot) {
     }
 
     private fun newTable(op: Op.NewTable): PlanState {
-        if (snap.mounted.isNotEmpty()) fail("Android has partitions on this drive mounted. Eject it in Settings first.")
+        if (snap.mounted.isNotEmpty()) fail("Android has partitions on this drive mounted. Tap Unmount at the top of the drive page first.")
         val t = when (op.kind) {
             TableKind.GPT -> {
                 if (snap.blockCount < 128) fail("The drive is too small for GPT")
@@ -353,7 +353,7 @@ class Planner(val snap: DiskSnapshot) {
 
     private fun notMounted(v: PlannedVolume) {
         if (v.change == VolumeChange.KEPT || v.change == VolumeChange.MODIFIED) {
-            if (v.partition.number in snap.mounted) fail("Android has partition ${v.partition.number} mounted. Eject it in Settings first.")
+            if (v.partition.number in snap.mounted) fail("Android has partition ${v.partition.number} mounted. Tap Unmount at the top of the drive page first.")
         }
     }
 
@@ -437,7 +437,7 @@ class Planner(val snap: DiskSnapshot) {
     private fun erase(s: PlanState, op: Op.Erase): PlanState {
         if (op.method == EraseMethod.DISCARD && !snap.discardSupported) fail("This drive doesn't support discard")
         if (op.number == null) {
-            if (snap.mounted.isNotEmpty()) fail("Android has partitions on this drive mounted. Eject it in Settings first.")
+            if (snap.mounted.isNotEmpty()) fail("Android has partitions on this drive mounted. Tap Unmount at the top of the drive page first.")
             // Erasing everything leaves no table; the person can create one in the same plan.
             return PlanState(null, emptyList(), newTable = false, wholeErase = op.method)
         }

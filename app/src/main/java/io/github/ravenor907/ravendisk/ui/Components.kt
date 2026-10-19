@@ -75,7 +75,7 @@ fun Gap(h: Int) = Spacer(Modifier.height(h.dp))
 @Composable
 fun HGap(w: Int) = Spacer(Modifier.width(w.dp))
 
-/** A rounded surface. Selected = aurora edge. */
+/** A rounded surface. Selected = copper edge. */
 @Composable
 fun Panel(
     modifier: Modifier = Modifier,
@@ -87,7 +87,7 @@ fun Panel(
 ) {
     val shape = RoundedCornerShape(16.dp)
     var m = modifier.clip(shape).background(color)
-    m = if (selected) m.border(2.dp, Raven.aurora, shape) else m.border(1.dp, Raven.Seam.copy(alpha = 0.5f), shape)
+    m = if (selected) m.border(2.dp, Raven.accent, shape) else m.border(1.dp, Raven.Seam.copy(alpha = 0.5f), shape)
     if (onClick != null) m = m.clickable(role = Role.Button, onClick = onClick)
     Column(m.padding(padding), content = content)
 }
@@ -100,7 +100,7 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
     val bg = when {
         !enabled -> Modifier.background(Raven.Iron, shape)
         danger -> Modifier.background(Raven.Danger, shape)
-        else -> Modifier.background(Raven.aurora, shape)
+        else -> Modifier.background(Raven.accent, shape)
     }
     Box(
         modifier.heightIn(min = 52.dp).clip(shape).then(bg).alpha(if (pressed) 0.85f else 1f)
@@ -128,7 +128,7 @@ fun QuietButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = 
 @Composable
 fun LinkButton(text: String, onClick: () -> Unit) {
     Box(Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp)) {
-        Txt(text, TextStyle(color = Raven.AuroraA, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
+        Txt(text, TextStyle(color = Raven.CopperHi, fontSize = 14.sp, fontWeight = FontWeight.SemiBold))
     }
 }
 
@@ -137,7 +137,7 @@ fun LinkButton(text: String, onClick: () -> Unit) {
 fun Choice(text: String, selected: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, detail: String? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     var m = modifier.clip(shape).background(if (selected) Raven.IronHi else Raven.Iron)
-    m = if (selected) m.border(2.dp, Raven.aurora, shape) else m.border(1.dp, Raven.Seam, shape)
+    m = if (selected) m.border(2.dp, Raven.accent, shape) else m.border(1.dp, Raven.Seam, shape)
     Column(
         m.clickable(enabled = enabled, role = Role.RadioButton, onClick = onClick).alpha(if (enabled) 1f else 0.45f)
             .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -157,7 +157,7 @@ fun Tag(text: String, color: Color = Raven.Ash, modifier: Modifier = Modifier) {
 enum class Tone { INFO, WARN, DANGER, GOOD }
 
 fun toneColor(t: Tone) = when (t) {
-    Tone.INFO -> Raven.AuroraA
+    Tone.INFO -> Raven.CopperHi
     Tone.WARN -> Raven.Warn
     Tone.DANGER -> Raven.Danger
     Tone.GOOD -> Raven.Good
@@ -201,7 +201,7 @@ fun KeyValue(label: String, value: String, note: String? = null, valueColor: Col
 
 /** Progress bar with a slow shimmer while active. */
 @Composable
-fun ProgressBar(progress: Float, active: Boolean, modifier: Modifier = Modifier, color: Brush = Raven.aurora) {
+fun ProgressBar(progress: Float, active: Boolean, modifier: Modifier = Modifier, color: Brush = Raven.accent) {
     val phase by rememberInfiniteTransition(label = "shine").animateFloat(
         0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "phase",
     )
@@ -221,7 +221,7 @@ fun ProgressBar(progress: Float, active: Boolean, modifier: Modifier = Modifier,
 
 /** Usage meter: used part in [color], the rest as track. */
 @Composable
-fun Meter(used: Float, modifier: Modifier = Modifier, color: Color = Raven.AuroraA) {
+fun Meter(used: Float, modifier: Modifier = Modifier, color: Color = Raven.CopperHi) {
     Canvas(modifier.fillMaxWidth().height(6.dp)) {
         val r = CornerRadius(size.height / 2)
         drawRoundRect(Raven.Iron, cornerRadius = r)
@@ -236,7 +236,7 @@ fun StatusMark(kind: String, size: Dp = 56.dp) {
     Canvas(Modifier.size(size)) {
         val u = this.size.width / 64f
         val brush = when (kind) {
-            "ok" -> Raven.aurora
+            "ok" -> Raven.accent
             "warn" -> SolidColor(Raven.Warn)
             "error" -> SolidColor(Raven.Danger)
             else -> SolidColor(Raven.Ash)
@@ -260,7 +260,7 @@ fun AckBox(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Row(
         Modifier.fillMaxWidth().clip(shape).background(Raven.Iron)
-            .then(if (checked) Modifier.border(2.dp, Raven.aurora, shape) else Modifier.border(1.dp, Raven.Seam, shape))
+            .then(if (checked) Modifier.border(2.dp, Raven.accent, shape) else Modifier.border(1.dp, Raven.Seam, shape))
             .clickable(role = Role.Checkbox) { onChange(!checked) }.padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -276,7 +276,7 @@ fun CheckGlyph(checked: Boolean, size: Dp = 22.dp) {
         val u = this.size.width / 24f
         val r = CornerRadius(5 * u)
         if (checked) {
-            drawRoundRect(Raven.aurora, cornerRadius = r)
+            drawRoundRect(Raven.accent, cornerRadius = r)
             drawPath(
                 Path().apply { moveTo(6 * u, 12.5f * u); lineTo(10 * u, 16.5f * u); lineTo(18 * u, 8 * u) }, Raven.Ink,
                 style = Stroke(2.8f * u, cap = StrokeCap.Round, join = StrokeJoin.Round),
@@ -315,7 +315,7 @@ fun Field(
                     onValueChange = onChange,
                     singleLine = true,
                     textStyle = Raven.body,
-                    cursorBrush = SolidColor(Raven.AuroraA),
+                    cursorBrush = SolidColor(Raven.CopperHi),
                     keyboardOptions = KeyboardOptions(keyboardType = if (number) KeyboardType.Decimal else KeyboardType.Text),
                     modifier = Modifier.fillMaxWidth(),
                 )

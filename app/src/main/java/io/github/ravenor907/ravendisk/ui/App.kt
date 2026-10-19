@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun App(m: AppModel) {
-    Box(Modifier.fillMaxSize().background(Raven.Night)) {
+    Box(Modifier.fillMaxSize().background(Raven.sky)) {
         Box(Modifier.fillMaxSize().safeDrawingPadding()) {
             when (val s = m.screen) {
                 Screen.Dashboard -> DashboardScreen(m)
