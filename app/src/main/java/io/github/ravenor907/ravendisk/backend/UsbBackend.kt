@@ -34,6 +34,17 @@ class AndroidUsbTransport(
     var lastResult: String = "none"
         private set
 
+    private val started = android.os.SystemClock.elapsedRealtime()
+    private val log = ArrayDeque<String>()
+
+    /** Every USB call this connection made, oldest first (last 40), with timings. */
+    val trace: List<String> get() = synchronized(log) { log.toList() }
+
+    fun note(s: String) = synchronized(log) {
+        log.addLast("+${android.os.SystemClock.elapsedRealtime() - started}ms $s")
+        while (log.size > 40) log.removeFirst()
+    }
+
     private fun viaRequest(ep: UsbEndpoint, data: ByteArray, offset: Int, length: Int, timeoutMs: Int, input: Boolean): Int {
         val r = android.hardware.usb.UsbRequest()
         if (!r.initialize(conn, ep)) return -1
@@ -64,25 +75,29 @@ class AndroidUsbTransport(
     override fun bulkOut(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
         val r = if (useRequests) viaRequest(outEp, data, offset, length, timeoutMs, false) else conn.bulkTransfer(outEp, data, offset, length, timeoutMs)
         lastResult = "out $length -> $r"
+        note("bulk out ${length}B -> $r" + if (length == 31) " (command 0x%02x)".format(data[offset + 15]) else "")
         return r
     }
 
     override fun bulkIn(data: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int {
         val r = if (useRequests) viaRequest(inEp, data, offset, length, timeoutMs, true) else conn.bulkTransfer(inEp, data, offset, length, timeoutMs)
         lastResult = "in $length -> $r"
+        note("bulk in ${length}B -> $r")
         return r
     }
 
     override fun resetRecovery() {
         // Bulk-Only Mass Storage Reset, then CLEAR_FEATURE(ENDPOINT_HALT) on both pipes.
-        conn.controlTransfer(0x21, 0xFF, 0, intf.id, null, 0, 5000)
-        conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 5000)
-        conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 5000)
+        val a = conn.controlTransfer(0x21, 0xFF, 0, intf.id, null, 0, 5000)
+        val b = conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 5000)
+        val c = conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 5000)
+        note("mass storage reset -> $a, clear halt in -> $b, clear halt out -> $c")
     }
 
     override fun maxLun(): Int {
         val b = ByteArray(1)
         val r = conn.controlTransfer(0xA1, 0xFE, 0, intf.id, b, 1, 2000)
+        note("GET MAX LUN -> $r" + if (r == 1) " (max LUN ${b[0]})" else "")
         return if (r == 1) (b[0].toInt() and 0x0F) else 0
     }
 
@@ -159,6 +174,11 @@ class UsbBackend(private val context: Context) {
         // Different phones and drives want different handling. Try the gentlest way first (what
         // Handheld Forge does), then progressively more forceful ones, each on a fresh connection.
         val tried = ArrayList<String>()
+        val appVersion = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        } catch (e: Exception) {
+            "?"
+        }
         for (mode in OpenMode.entries) {
             // A failed attempt can make the drive reconnect; give Android a moment and look it up again.
             var dev = d
@@ -179,13 +199,15 @@ class UsbBackend(private val context: Context) {
                 conn.close()
                 continue
             }
+            val t = AndroidUsbTransport(conn, intf, inEp, outEp, useRequests = mode == OpenMode.ASYNC)
+            t.note("opened ${dev.deviceName}, claimed interface ${intf.id}")
             if (mode != OpenMode.PLAIN) {
                 // Select the Bulk-Only setting (USB 3 sticks may be left in UAS mode) and clear stalls.
-                conn.setInterface(intf)
-                conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 2000)
-                conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 2000)
+                val si = conn.setInterface(intf)
+                val h1 = conn.controlTransfer(0x02, 0x01, 0, inEp.address, null, 0, 2000)
+                val h2 = conn.controlTransfer(0x02, 0x01, 0, outEp.address, null, 0, 2000)
+                t.note("set interface -> $si, clear halt in -> $h1, clear halt out -> $h2")
             }
-            val t = AndroidUsbTransport(conn, intf, inEp, outEp, useRequests = mode == OpenMode.ASYNC)
             if (mode == OpenMode.RESET || mode == OpenMode.ASYNC) {
                 t.resetRecovery()
                 Thread.sleep(500)
@@ -205,7 +227,7 @@ class UsbBackend(private val context: Context) {
                 val luns = listOf(first) + (1..max).map { lun -> openLun(t, lun) }
                 return UsbConnection(d, t, luns, linkSpeed(outEp.maxPacketSize))
             } catch (e: IOException) {
-                tried.add("${mode.label}: ${e.message} [last USB transfer: ${t.lastResult}]")
+                tried.add("${mode.label}: ${e.message}\n" + t.trace.joinToString("\n") { "       $it" })
                 t.close()
                 Thread.sleep(300)
             }
@@ -220,10 +242,12 @@ class UsbBackend(private val context: Context) {
         throw UsbOpenException(
             why,
             buildString {
+                appendLine("Raven Disk Utility ${appVersion} report, ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date())}")
+                appendLine()
                 appendLine("What was tried, in order (each on a fresh connection):")
                 tried.forEachIndexed { i, x -> appendLine("  ${i + 1}. $x") }
                 appendLine()
-                append(describe(d))
+                append(describe(d, context))
             },
         )
     }
@@ -271,10 +295,23 @@ class UsbBackend(private val context: Context) {
         private val NVME_BRIDGES = setOf(0x152d to 0x0583, 0x152d to 0x0562, 0x0bda to 0x9210, 0x0bda to 0x9220, 0x174c to 0x2362, 0x174c to 0x2364)
 
         /** Everything Android reports about a USB device, for copy-and-paste troubleshooting. */
-        fun describe(d: UsbDevice): String = buildString {
-            appendLine("Phone: ${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        fun describe(d: UsbDevice, context: Context? = null): String = buildString {
+            appendLine("Phone: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE}), Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), patch ${Build.VERSION.SECURITY_PATCH}")
+            appendLine("Build: ${Build.DISPLAY}, kernel ${System.getProperty("os.version")}, ABI ${Build.SUPPORTED_ABIS.firstOrNull()}")
+            if (context != null) {
+                val m = context.getSystemService(Context.USB_SERVICE) as UsbManager?
+                appendLine("USB host feature: ${context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_USB_HOST)}, permission for this drive: ${m?.hasPermission(d)}")
+                appendLine("All USB devices: " + (m?.deviceList?.values?.joinToString { "%04x:%04x %s".format(it.vendorId, it.productId, it.productName ?: "") } ?: "none"))
+                val vols = try {
+                    AndroidVolumes.list(context).filter { !it.primary }
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                appendLine("Android's removable volumes: " + (vols.joinToString { "${it.description} [${it.state}${it.fsType?.let { f -> ", $f" } ?: ""}]" }.ifEmpty { "none" }))
+            }
             appendLine("Device: %04x:%04x  %s / %s".format(d.vendorId, d.productId, d.manufacturerName ?: "?", d.productName ?: "?"))
             appendLine("Class ${d.deviceClass}/${d.deviceSubclass}/${d.deviceProtocol}, ${d.configurationCount} configuration(s), path ${d.deviceName}")
+                appendLine("USB version ${d.version}, speed hint: ${(0 until d.interfaceCount).flatMap { i -> (0 until d.getInterface(i).endpointCount).map { d.getInterface(i).getEndpoint(it).maxPacketSize } }.maxOrNull()?.let { linkSpeed(it) } ?: "?"}")
             for (i in 0 until d.interfaceCount) {
                 val f = d.getInterface(i)
                 val kind = when {

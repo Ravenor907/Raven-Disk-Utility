@@ -186,6 +186,12 @@ fun DriveCard(d: Drive, m: AppModel) {
                         QuietButton("Try again") { m.refresh(setOf(d.key)) }
                         if (d.details != null) {
                             QuietButton(if (open) "Hide details" else "Details") { open = !open }
+                            QuietButton("Share") {
+                                val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain")
+                                    .putExtra(android.content.Intent.EXTRA_SUBJECT, "Raven Disk Utility: ${d.title}")
+                                    .putExtra(android.content.Intent.EXTRA_TEXT, "${d.title}\n${d.message}\n\n${d.details}")
+                                ctx.startActivity(android.content.Intent.createChooser(send, "Share report"))
+                            }
                             QuietButton("Copy") {
                                 val cm = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                 cm.setPrimaryClip(android.content.ClipData.newPlainText("Raven Disk Utility report", "${d.title}\n${d.message}\n\n${d.details}"))

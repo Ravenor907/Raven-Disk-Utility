@@ -193,7 +193,7 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
             } catch (e: UsbOpenException) {
                 return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = e.details))
             } catch (e: IOException) {
-                return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = UsbBackend.describe(d)))
+                return listOf(Drive("$key#0", title, DriveState.ERROR, e.message, usbName = name, details = UsbBackend.describe(d, context)))
             }
         }
         val multi = conn.luns.size > 1
