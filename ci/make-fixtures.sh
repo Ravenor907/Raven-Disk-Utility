@@ -59,8 +59,10 @@ fi
 if have sgdisk && have mkfs.vfat && have mkfs.ext4; then
   img multi.img 512M
   # Explicit sectors: 1 MiB aligned, last partition to the end of the usable area.
-  sgdisk -q -o -n 1:2048:206847 -t 1:ef00 -c 1:"EFI system" -n 2:206848:616447 -t 2:8300 -c 2:root \
-    -n 3:616448:1048542 -t 3:0700 multi.img
+  sgdisk -o -n 1:2048:206847 -t 1:ef00 -c 1:"EFI system" -n 2:206848:616447 -t 2:8300 -c 2:root \
+    -n 3:616448:1048542 -t 3:0700 multi.img >/dev/null
+  pt=$(blkid -p -s PTTYPE -o value multi.img || true)
+  [ "$pt" = gpt ] || { echo "::error title=Fixture::sgdisk didn't leave a GPT on multi.img (blkid: '$pt'): $(sgdisk -p multi.img 2>&1 | tr '\n' ' ')"; exit 1; }
   put() { # part file start-sector
     dd if="$2" of=multi.img bs=512 seek="$3" conv=notrunc status=none
     rm -f "$2"
