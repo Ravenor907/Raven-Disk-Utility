@@ -3,6 +3,8 @@
 # each one (image, partition or 0, TYPE, LABEL, UUID). RealToolsTest checks that the app's reader
 # agrees. Tools that aren't installed are skipped, so this also runs on a dev machine.
 set -euo pipefail
+# The job log isn't always easy to reach, so every failure also becomes an annotation.
+trap 'echo "::error title=make-fixtures line $LINENO::$BASH_COMMAND failed"' ERR
 out=${1:?usage: make-fixtures.sh DIR}
 mkdir -p "$out"
 cd "$out"
@@ -19,7 +21,7 @@ record() { # image part offset
   type=$(sed -n 's/^TYPE=//p' <<<"$vals")
   label=$(sed -n 's/^LABEL=//p' <<<"$vals" | sed 's/\\ / /g')
   uuid=$(sed -n 's/^UUID=//p' <<<"$vals")
-  if [ -z "$type" ]; then echo "blkid saw nothing in $img#$part" >&2; return 1; fi
+  if [ -z "$type" ]; then echo "::error title=Fixture::blkid saw nothing in $img#$part"; return 1; fi
   printf '%s\t%s\t%s\t%s\t%s\n' "$img" "$part" "$type" "$label" "$uuid" >> expect.tsv
   echo "made $img#$part: $type '$label' $uuid"
 }
