@@ -343,3 +343,42 @@ fun QuickFormatSheet(p: Planner, onClose: () -> Unit, onDone: (List<Op>) -> Unit
         SheetButtons("Continue", problem, danger = true, onClose = onClose) { ops?.let(onDone) }
     }
 }
+
+@Composable
+fun SpeedTestSheet(p: Planner, onClose: () -> Unit, onStart: () -> Unit) {
+    Sheet("Speed and capacity test", onClose) {
+        var ack by remember { mutableStateOf(false) }
+        Banner("This writes test data over the whole drive. Everything on it will be erased.", Tone.DANGER)
+        Gap(12)
+        Txt("About two to four minutes. A live graph shows the speed as it happens: a fast start that drops means a small cache, dips mean the drive is struggling.", Raven.hint)
+        Gap(8)
+        Txt("Markers are written right up to the last megabyte, so a fake drive that claims more space than it has gets caught.", Raven.hint)
+        Gap(14)
+        AckBox("I understand everything on this drive will be permanently lost.", ack) { ack = it }
+        SheetButtons("Start test", if (ack) null else "", danger = true, onClose = onClose, onConfirm = onStart)
+    }
+}
+
+@Composable
+fun WriteImageSheet(p: Planner, img: io.github.ravenor907.ravendisk.run.PickedImage, onClose: () -> Unit, onStart: () -> Unit) {
+    Sheet("Write image", onClose) {
+        var ack by remember { mutableStateOf(false) }
+        Panel(color = Raven.Iron) {
+            Txt(img.name, Raven.body)
+            Gap(2)
+            Txt("${img.kind.label} · ${if (img.size >= 0) Units.size(img.size) else "size unknown"}", Raven.small)
+        }
+        img.kind.warning?.let {
+            Gap(10)
+            Banner(it, Tone.WARN)
+        }
+        Gap(10)
+        Banner("Everything on this drive will be erased and replaced by the image.", Tone.DANGER)
+        Gap(12)
+        Txt(if (img.kind.compressed) "It's unpacked while it's written, then the whole drive is read back and compared." else "When it's written, the whole image is read back from the drive and compared.", Raven.hint)
+        Gap(14)
+        val problem = io.github.ravenor907.ravendisk.run.Tools.imageProblem(img, p.snap)
+        if (problem == null) AckBox("I understand everything on this drive will be permanently lost.", ack) { ack = it }
+        SheetButtons("Write image", problem ?: if (ack) null else "", danger = true, onClose = onClose, onConfirm = onStart)
+    }
+}

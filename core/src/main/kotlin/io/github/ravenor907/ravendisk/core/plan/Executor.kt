@@ -1,5 +1,6 @@
 package io.github.ravenor907.ravendisk.core.plan
 
+import io.github.ravenor907.ravendisk.core.job.CancelledException
 import io.github.ravenor907.ravendisk.core.fs.Ext4
 import io.github.ravenor907.ravendisk.core.fs.ExFat
 import io.github.ravenor907.ravendisk.core.fs.Fat32
@@ -32,7 +33,6 @@ interface DiskSession : AutoCloseable {
     }
 }
 
-class CancelledException : Exception("Stopped")
 
 enum class Outcome(val label: String) {
     SUCCESS("Done"),

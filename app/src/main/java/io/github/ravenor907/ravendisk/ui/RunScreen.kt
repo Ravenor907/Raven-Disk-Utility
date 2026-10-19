@@ -26,7 +26,8 @@ fun RunScreen(m: AppModel, key: String) {
     }
     val result = r.result
     Page {
-        TopBar(if (result == null) "Applying changes" else "Result", r.driveName, onBack = if (result != null) ({ Runner.dismiss(); m.pop(); Unit }) else null)
+        val tool = r.tool
+        TopBar(if (result == null) (tool?.title ?: "Applying changes") else "Result", r.driveName, onBack = if (result != null) ({ Runner.dismiss(); m.pop(); Unit }) else null)
         if (result == null) {
             Panel {
                 Txt("${(r.fraction * 100).toInt()}%", Raven.big)
@@ -35,12 +36,20 @@ fun RunScreen(m: AppModel, key: String) {
                 Txt("Step ${r.stepIndex + 1} of ${r.stepCount}", Raven.hint)
                 Gap(14)
                 ProgressBar(r.fraction, active = true)
+                if (r.total > 0) {
+                    Gap(6)
+                    Txt("%s of %s".format(io.github.ravenor907.ravendisk.core.util.Units.size(r.done), io.github.ravenor907.ravendisk.core.util.Units.size(r.total)), Raven.small)
+                }
                 Gap(14)
                 Banner("Keep the drive connected and leave the app open until this finishes. Unplugging now can leave the drive half-changed.", Tone.INFO)
                 Gap(12)
                 QuietButton(if (r.stopping) "Stopping…" else "Stop", Modifier.fillMaxWidth(), enabled = !r.stopping) { Runner.stop() }
                 Gap(6)
                 Txt("Stopping keeps whatever is already written; there's no rollback.", Raven.small)
+            }
+            if (tool != null) {
+                SectionTitle("Live speed")
+                Panel { SpeedGraph(r.samples, live = true) }
             }
         } else {
             val (mark, color) = when (result.outcome) {
@@ -60,12 +69,16 @@ fun RunScreen(m: AppModel, key: String) {
                     }
                 }
             }
+            if (tool != null && r.samples.isNotEmpty()) {
+                SectionTitle("Speed")
+                Panel { SpeedGraph(r.samples, live = false) }
+            }
             if (result.checks.isNotEmpty()) {
-                SectionTitle("Verification")
+                SectionTitle(if (tool == io.github.ravenor907.ravendisk.run.ToolKind.SPEED_TEST) "Findings" else "Verification")
                 Panel {
                     result.checks.forEach { c ->
                         Txt(c, Raven.body.copy(color = when {
-                            c.startsWith("✗") -> Raven.Danger
+                            c.startsWith("✗") || c.startsWith("FAKE") || c.startsWith("LOST") -> Raven.Danger
                             c.startsWith("✓") -> Raven.Bone
                             else -> Raven.Ash
                         }))
@@ -89,6 +102,14 @@ fun RunScreen(m: AppModel, key: String) {
                 if (result.steps.isEmpty()) Txt("No steps ran.", Raven.hint)
             }
             Gap(16)
+            if (tool == io.github.ravenor907.ravendisk.run.ToolKind.SPEED_TEST || (tool != null && result.outcome != Outcome.SUCCESS)) {
+                PrimaryButton("Format drive", Modifier.fillMaxWidth()) {
+                    Runner.dismiss()
+                    m.demoSheet = "quickformat"
+                    m.pop()
+                }
+                Gap(10)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 QuietButton("Operation log", Modifier.weight(1f)) { m.push(Screen.Log) }
                 PrimaryButton("Back to drive", Modifier.weight(1.4f)) {
@@ -97,7 +118,7 @@ fun RunScreen(m: AppModel, key: String) {
                 }
             }
         }
-        SectionTitle("Planned changes")
+        SectionTitle(if (tool != null) "What this does" else "Planned changes")
         Panel { r.ops.forEachIndexed { i, o -> Txt("${i + 1}. $o", Raven.body); Gap(2) } }
         if (r.log.isNotEmpty()) {
             SectionTitle("Log")

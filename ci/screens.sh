@@ -31,6 +31,11 @@ shot review review 11
 shot review-table review-table 11
 shot running run 10
 shot done done 15
+shot speedtest-live speedtest 17
+shot speedtest-done speedtest 40
+shot writeimage-sheet writeimage-sheet 14
+shot writeimage-live writeimage 12
+shot writeimage-done writeimage 30
 shot capabilities capabilities 10
 shot log log 10
 # Scroll the device workspace to the actions and health sections.

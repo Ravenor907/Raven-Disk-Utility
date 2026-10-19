@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.ravenor907.ravendisk.backend.Drive
+import kotlinx.coroutines.launch
 import io.github.ravenor907.ravendisk.backend.Drives
 import io.github.ravenor907.ravendisk.core.fs.FsSupport
 import io.github.ravenor907.ravendisk.core.health.HealthReport
@@ -57,6 +58,8 @@ sealed class SheetKind {
     data class Erase(val n: Int?) : SheetKind()
     object NewTable : SheetKind()
     object QuickFormat : SheetKind()
+    object SpeedTest : SheetKind()
+    data class WriteImage(val img: io.github.ravenor907.ravendisk.run.PickedImage) : SheetKind()
 }
 
 @Composable
@@ -77,6 +80,26 @@ fun DeviceScreen(m: AppModel, key: String) {
     var sheet by remember(key) { mutableStateOf(initialSheet(m, planner)) }
     var message by remember(key) { mutableStateOf<String?>(null) }
 
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var picking by remember(key) { mutableStateOf(false) }
+    var pickError by remember(key) { mutableStateOf<String?>(null) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        picking = true
+        pickError = null
+        scope.launch {
+            try {
+                val img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { io.github.ravenor907.ravendisk.run.Tools.inspect(ctx, uri) }
+                sheet = SheetKind.WriteImage(img)
+            } catch (e: Exception) {
+                pickError = "Couldn't read that file: ${e.message ?: e.javaClass.simpleName}"
+            }
+            picking = false
+        }
+    }
+    fun pick() = picker.launch(arrayOf("*/*"))
+
     fun queue(op: Op) {
         message = planner.problem(op)
         if (message == null) {
@@ -96,6 +119,7 @@ fun DeviceScreen(m: AppModel, key: String) {
                         Column(Modifier.weight(1.1f).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 12.dp)) {
                             Header(m, d, planner)
                             FormatDriveCard(planner) { sheet = SheetKind.QuickFormat }
+                            ToolsCard(planner, onPick = { pick() }, onSpeed = { sheet = SheetKind.SpeedTest }, picking = picking, pickError = pickError)
                             LayoutPanel(d, planner, state, selected) { selected = it }
                         }
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 12.dp)) {
@@ -108,6 +132,7 @@ fun DeviceScreen(m: AppModel, key: String) {
                     Page {
                         Header(m, d, planner)
                         FormatDriveCard(planner) { sheet = SheetKind.QuickFormat }
+                        ToolsCard(planner, onPick = { pick() }, onSpeed = { sheet = SheetKind.SpeedTest }, picking = picking, pickError = pickError)
                         LayoutPanel(d, planner, state, selected) { selected = it }
                         message?.let { Gap(10); Banner(it, Tone.DANGER) }
                         if (sel != null) {
@@ -121,7 +146,18 @@ fun DeviceScreen(m: AppModel, key: String) {
             }
             if (planner.queue.isNotEmpty()) PendingBar(m, key, planner)
         }
-        if (sheet == SheetKind.QuickFormat) {
+        val k = sheet
+        if (k == SheetKind.SpeedTest) {
+            SpeedTestSheet(planner, onClose = { sheet = null }) {
+                sheet = null
+                m.startSpeedTest(key)
+            }
+        } else if (k is SheetKind.WriteImage) {
+            WriteImageSheet(planner, k.img, onClose = { sheet = null }) {
+                sheet = null
+                m.startWriteImage(key, k.img)
+            }
+        } else if (sheet == SheetKind.QuickFormat) {
             QuickFormatSheet(planner, onClose = { sheet = null }) { ops ->
                 ops.forEach { planner.add(it) }
                 m.planChanged()
@@ -140,6 +176,10 @@ fun DeviceScreen(m: AppModel, key: String) {
 }
 
 private fun initialSheet(m: AppModel, p: Planner): SheetKind? {
+    m.demoImage?.let {
+        m.demoImage = null
+        return SheetKind.WriteImage(it)
+    }
     val demo = m.demoSheet ?: return null
     m.demoSheet = null
     val t = p.current.table
@@ -148,6 +188,7 @@ private fun initialSheet(m: AppModel, p: Planner): SheetKind? {
         "table" -> SheetKind.NewTable
         "format" -> SheetKind.Format(t?.partitions?.lastOrNull()?.number ?: 1)
         "erase" -> SheetKind.Erase(null)
+        "quickformat" -> SheetKind.QuickFormat
         else -> null
     }
 }
@@ -487,6 +528,42 @@ private fun PendingBar(m: AppModel, key: String, p: Planner) {
 }
 
 /** The one thing most people came to do, up front. */
+/** Why a whole-drive action can't start now, or null. */
+private fun wholeDriveBlocked(p: Planner): String? = when {
+    p.snap.readOnly -> "This drive is write-protected"
+    p.snap.deviceMounted || p.snap.mounted.isNotEmpty() -> "Unmount it first (button at the top)"
+    p.queue.isNotEmpty() -> "Review or discard the pending changes first"
+    else -> null
+}
+
+/** Write an image and the speed test: the two tools shared with Handheld Forge. */
+@Composable
+private fun ToolsCard(p: Planner, onPick: () -> Unit, onSpeed: () -> Unit, picking: Boolean, pickError: String?) {
+    val blocked = wholeDriveBlocked(p)
+    Panel {
+        Txt("Write an image", Raven.h2)
+        Gap(4)
+        Txt("Make a bootable drive from an ISO or disk image (.iso, .img, .raw, also .xz, .gz, .bz2, .zip). Checked byte for byte afterwards.", Raven.hint)
+        Gap(12)
+        QuietButton(if (picking) "Reading the file..." else "Choose an image file", Modifier.fillMaxWidth(), enabled = blocked == null && !picking, onClick = onPick)
+        pickError?.let {
+            Gap(6)
+            Txt(it, Raven.small.copy(color = Raven.Danger))
+        }
+        Gap(16)
+        Txt("Speed and capacity test", Raven.h2)
+        Gap(4)
+        Txt("Live graph of real write and read speed, and proof the drive really holds what it claims. Erases the drive.", Raven.hint)
+        Gap(12)
+        QuietButton("Test this drive", Modifier.fillMaxWidth(), enabled = blocked == null, onClick = onSpeed)
+        blocked?.let {
+            Gap(6)
+            Txt(it, Raven.small)
+        }
+    }
+    Gap(12)
+}
+
 @Composable
 private fun FormatDriveCard(p: Planner, onClick: () -> Unit) {
     val blocked = when {

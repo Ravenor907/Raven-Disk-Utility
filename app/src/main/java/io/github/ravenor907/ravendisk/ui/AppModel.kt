@@ -35,6 +35,9 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
 
     /** Debug demo: a sheet to open on the first device screen. */
     var demoSheet: String? = null
+
+    /** Debug demo: an image to offer on the first device screen. */
+    var demoImage: io.github.ravenor907.ravendisk.run.PickedImage? = null
     val journal: TextJournal get() = app.journal
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -160,5 +163,48 @@ class AppModel(private val context: Context, val app: RavenApp, demo: Boolean) {
             }
         }
         replace(Screen.Run(key))
+    }
+
+    /** Runs the shared speed and capacity test on [key]. Erases the drive. */
+    fun startSpeedTest(key: String) {
+        val d = drives.drive(key) ?: return
+        val session = drives.session(key) ?: return
+        val snap = d.snapshot ?: return
+        val ops = listOf(
+            "Write test data from the start of the drive for about 90 seconds (1 to 4 GB), graphing the speed live",
+            "Write small markers across the rest of the drive, up to its last megabyte",
+            "Read everything back: read speed, and proof the full capacity is real",
+            "Everything on the drive is erased",
+        )
+        Runner.startTool(context, key, d.title, io.github.ravenor907.ravendisk.run.ToolKind.SPEED_TEST, ops, journal, { c ->
+            io.github.ravenor907.ravendisk.run.Tools.speedTest(session, snap, d.simulated, c)
+        }) { afterTool(key) }
+        push(Screen.Run(key))
+    }
+
+    /** Writes a picked image to [key] byte for byte and reads it back. */
+    fun startWriteImage(key: String, img: io.github.ravenor907.ravendisk.run.PickedImage) {
+        val d = drives.drive(key) ?: return
+        val session = drives.session(key) ?: return
+        val snap = d.snapshot ?: return
+        val ops = listOf(
+            "Write ${img.name} (${img.kind.label}) to the drive byte for byte" + if (img.kind.compressed) ", unpacking it on the way" else "",
+            "Read the whole image back from the drive and compare",
+            "Everything else on the drive is erased",
+        )
+        Runner.startTool(context, key, d.title, io.github.ravenor907.ravendisk.run.ToolKind.WRITE_IMAGE, ops, journal, { c ->
+            io.github.ravenor907.ravendisk.run.Tools.writeImage(context, img, session, snap, d.simulated, c)
+        }) { afterTool(key) }
+        push(Screen.Run(key))
+    }
+
+    private fun afterTool(key: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                drives.discardPlan(key)
+                drives.refresh(setOf(key))
+            }
+            planChanged()
+        }
     }
 }

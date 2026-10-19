@@ -10,6 +10,9 @@ interface BlockDevice {
     val blockCount: Long
     val sizeBytes: Long get() = blockSize.toLong() * blockCount
 
+    /** A short human name for logs ("SanDisk Ultra"). */
+    val name: String get() = "Drive"
+
     /** True when the device refuses writes (lock switch, read-only backend). */
     val readOnly: Boolean get() = false
 

@@ -24,6 +24,36 @@ interface UsbTransport {
 
     /** CLEAR_FEATURE(ENDPOINT_HALT) on the bulk-in or bulk-out pipe. Returns the control transfer result. */
     fun clearHalt(input: Boolean): Int = -1
+
+    /** Whether [streamOut]/[streamIn] keep several transfers in flight at once. */
+    val canPipeline: Boolean get() = false
+
+    /**
+     * Moves [length] bytes as [piece]-sized transfers, ideally several queued at once so the bus never
+     * waits on the phone between pieces (most of the speed on big reads and writes). Returns bytes
+     * moved (less than [length] on a short read), or -1 on failure.
+     */
+    fun streamOut(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int {
+        var done = 0
+        while (done < length) {
+            val r = bulkOut(data, offset + done, minOf(piece, length - done), timeoutMs)
+            if (r < 0) return -1
+            done += r
+        }
+        return done
+    }
+
+    fun streamIn(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int {
+        var done = 0
+        while (done < length) {
+            val n = minOf(piece, length - done)
+            val r = bulkIn(data, offset + done, n, timeoutMs)
+            if (r < 0) return -1
+            done += r
+            if (r < n) break
+        }
+        return done
+    }
 }
 
 open class ScsiException(msg: String, val senseKey: Int = -1, val asc: Int = -1, val ascq: Int = -1) : IOException(msg)
@@ -37,6 +67,13 @@ class BulkOnly(val t: UsbTransport, val lun: Int = 0) {
 
     /** Size of each bulk transfer in a data phase. Steps down on trouble. */
     var transferSize = t.maxTransfer
+
+    /**
+     * Queue several transfers at once for big data phases (reads and writes). Switched off by the
+     * first sign of trouble. Small answers (INQUIRY, VPD, sense) always go one transfer at a time,
+     * because that's where drives stall and need the halt cleared.
+     */
+    var pipelined = t.canPipeline
 
     /** Runs one SCSI command. At most one of [dataIn]/[dataOut]. Returns the CSW status (0 passed, 1 failed). */
     fun command(
@@ -61,7 +98,10 @@ class BulkOnly(val t: UsbTransport, val lun: Int = 0) {
         cbw.put(lun.toByte()).put(cdb.size.toByte()).put(cdb)
         if (t.bulkOut(cbw.array(), 0, 31, timeoutMs) != 31) fail("The drive did not accept a command")
 
-        if (length > 0) {
+        if (length > transferSize && pipelined) {
+            val r = if (dataIn != null) t.streamIn(dataIn, offset, length, transferSize, timeoutMs) else t.streamOut(dataOut!!, offset, length, transferSize, timeoutMs)
+            if (r < 0) fail("A USB transfer failed")
+        } else if (length > 0) {
             var done = 0
             while (done < length) {
                 val n = minOf(transferSize, length - done)
@@ -140,6 +180,13 @@ class ScsiDisk(private val bot: BulkOnly) : BlockDevice {
         private set
 
     val lun: Int get() = bot.lun
+
+    /** "Vendor Product" from INQUIRY, for logs and reports. */
+    override val name: String get() = if (!::identity.isInitialized) "USB drive" else listOf(identity.vendor, identity.product).filter { it.isNotEmpty() }.joinToString(" ").ifEmpty { "USB drive" }
+
+    /** Bytes per bulk transfer, and whether several are queued at once (for logs). */
+    val transferSize: Int get() = bot.transferSize
+    val pipelined: Boolean get() = bot.pipelined
 
     /** Notes about the connection (slowing down after an error), for the operation log. */
     var onNote: (String) -> Unit = {}
@@ -279,6 +326,11 @@ class ScsiDisk(private val bot: BulkOnly) : BlockDevice {
     }
 
     private fun stepDown(): Boolean {
+        if (bot.pipelined) {
+            bot.pipelined = false
+            onNote("USB hiccup: sending one transfer at a time from now on")
+            return true
+        }
         val smallerCmd = COMMAND_LADDER.firstOrNull { it < commandBytes && it >= blockSize }
         val smallerXfer = if (bot.transferSize > MIN_TRANSFER) MIN_TRANSFER else null
         if (smallerCmd == null && smallerXfer == null) return false

@@ -102,6 +102,31 @@ class MainActivity : ComponentActivity() {
                 model.push(Screen.Device("demo:hdd"))
                 model.push(Screen.Review("demo:hdd"))
             }
+            "speedtest", "speedtest-done" -> {
+                model.push(Screen.Device("demo:flash"))
+                model.startSpeedTest("demo:flash")
+            }
+            "writeimage", "writeimage-sheet", "writeimage-done" -> {
+                // A small hybrid-ISO-shaped file, as if picked from Downloads.
+                val f = java.io.File(cacheDir, "demo-linux.iso")
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val b = ByteArray(48 shl 20)
+                    java.util.Random(3).nextBytes(b)
+                    b[510] = 0x55; b[511] = 0xAA.toByte()
+                    "CD001".toByteArray().copyInto(b, 32_769)
+                    f.writeBytes(b)
+                }
+                val img = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    io.github.ravenor907.ravendisk.run.Tools.inspect(this@MainActivity, android.net.Uri.fromFile(f))
+                }
+                if (demo == "writeimage-sheet") {
+                    model.demoImage = img
+                    model.push(Screen.Device("demo:flash"))
+                } else {
+                    model.push(Screen.Device("demo:flash"))
+                    model.startWriteImage("demo:flash", img)
+                }
+            }
             "run", "done" -> {
                 val p = model.planner(ssd) ?: return
                 if (demo == "run") p.add(Op.Erase(2, EraseMethod.ZERO)) else p.add(Op.SetLabel(1, "BOOT"))

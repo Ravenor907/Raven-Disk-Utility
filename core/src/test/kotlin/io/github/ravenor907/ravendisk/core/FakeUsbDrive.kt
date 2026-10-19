@@ -34,7 +34,22 @@ class FakeUsbDrive(
     var flakyTransfers: Int = 0,
     /** Stall bulk-in after a short data phase until the host clears the halt (Bulk-Only case 4). */
     val stallAfterShort: Boolean = false,
+    /** Claim to queue several transfers at once (exercises the pipelined data path). */
+    val pipeline: Boolean = false,
 ) : UsbTransport {
+    override val canPipeline: Boolean get() = pipeline
+    var streams = 0
+
+    override fun streamOut(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int {
+        streams++
+        return super.streamOut(data, offset, length, piece, timeoutMs)
+    }
+
+    override fun streamIn(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int {
+        streams++
+        return super.streamIn(data, offset, length, piece, timeoutMs)
+    }
+
     private var inHalted = false
     var haltsCleared = 0
 

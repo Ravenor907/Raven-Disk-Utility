@@ -21,6 +21,9 @@ import java.io.Closeable
 import java.io.IOException
 
 /** Android's USB host API under the app's own Bulk-Only/SCSI code. */
+/** USB transfers kept in flight while streaming; enough to hide the phone's turnaround. */
+private const val DEPTH = 8
+
 class AndroidUsbTransport(
     private val conn: UsbDeviceConnection,
     private val intf: UsbInterface,
@@ -84,6 +87,83 @@ class AndroidUsbTransport(
         lastResult = "in $length -> $r"
         note("bulk in ${length}B -> $r")
         return r
+    }
+
+    override val canPipeline: Boolean get() = true
+
+    override fun streamOut(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int =
+        stream(outEp, data, offset, length, piece, timeoutMs, input = false)
+
+    override fun streamIn(data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int): Int =
+        stream(inEp, data, offset, length, piece, timeoutMs, input = true)
+
+    /**
+     * Keeps [DEPTH] transfers queued with UsbRequest, so the next piece is already waiting when the
+     * drive finishes one. USB completes requests on an endpoint in order, so data lands in order.
+     * (From Handheld Forge, which measured it as most of the write speed on phones.)
+     */
+    private fun stream(ep: UsbEndpoint, data: ByteArray, offset: Int, length: Int, piece: Int, timeoutMs: Int, input: Boolean): Int {
+        val reqs = ArrayList<android.hardware.usb.UsbRequest>()
+        val bufs = HashMap<android.hardware.usb.UsbRequest, java.nio.ByteBuffer>()
+        val starts = HashMap<android.hardware.usb.UsbRequest, Int>()
+        val sizes = HashMap<android.hardware.usb.UsbRequest, Int>()
+        var moved = 0
+        try {
+            repeat(DEPTH) {
+                val r = android.hardware.usb.UsbRequest()
+                if (!r.initialize(conn, ep)) return -1
+                reqs.add(r)
+                bufs[r] = java.nio.ByteBuffer.allocateDirect(piece)
+            }
+            var queued = 0
+            var inFlight = 0
+            var ended = false
+            fun queue(r: android.hardware.usb.UsbRequest): Boolean {
+                val n = minOf(piece, length - queued)
+                if (n <= 0 || ended) return true
+                val b = bufs.getValue(r)
+                b.clear()
+                if (!input) b.put(data, offset + queued, n)
+                b.flip()
+                if (input) b.limit(n)
+                starts[r] = queued
+                sizes[r] = n
+                if (!r.queue(b)) return false
+                queued += n
+                inFlight++
+                return true
+            }
+            for (r in reqs) if (!queue(r)) return -1
+            while (inFlight > 0) {
+                val done = try {
+                    conn.requestWait(timeoutMs.toLong())
+                } catch (e: java.util.concurrent.TimeoutException) {
+                    null
+                } ?: return -1
+                inFlight--
+                val b = bufs[done] ?: return -1
+                val n = sizes.getValue(done)
+                val got = if (input) b.position() else n
+                if (input) {
+                    b.flip()
+                    b.get(data, offset + starts.getValue(done), got)
+                    if (got < n) ended = true // short packet: the drive sent everything
+                }
+                moved += got
+                if (!queue(done)) return -1
+            }
+            return moved
+        } finally {
+            for (r in reqs) {
+                try {
+                    r.cancel()
+                } catch (_: Exception) {
+                }
+                r.close()
+            }
+            lastResult = "${if (input) "stream in" else "stream out"} $length -> $moved"
+            note("${if (input) "stream in" else "stream out"} ${length}B in ${piece / 1024} KB pieces -> $moved")
+        }
     }
 
     override fun resetRecovery() {

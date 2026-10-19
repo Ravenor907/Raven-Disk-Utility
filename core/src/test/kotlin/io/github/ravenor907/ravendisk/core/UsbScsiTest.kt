@@ -53,6 +53,29 @@ class UsbScsiTest {
     }
 
     @Test
+    fun pipelinedReadsAndWrites() {
+        val f = FakeUsbDrive(blocks = 8192, pipeline = true, stallAfterShort = true)
+        val d = open(f)
+        assertTrue(d.pipelined)
+        assertEquals("FakeCo Test Drive 3000", d.name)
+        val data = ByteArray(2048 * 512) { (it * 13 + 1).toByte() }
+        d.write(10, 2048, data)
+        assertArrayEquals(data, d.readBlocks(10, 2048))
+        assertTrue(f.streams > 0)
+    }
+
+    @Test
+    fun pipelineSwitchesOffAfterAHiccup() {
+        val f = FakeUsbDrive(blocks = 8192, pipeline = true)
+        val d = open(f)
+        f.flakyTransfers = 1
+        val data = ByteArray(512 * 512) { it.toByte() }
+        d.write(0, 512, data)
+        assertFalse(d.pipelined)
+        assertArrayEquals(data, d.readBlocks(0, 512))
+    }
+
+    @Test
     fun readWriteRoundTripAcrossCommands() {
         val f = FakeUsbDrive(blocks = 8192)
         val d = open(f)
