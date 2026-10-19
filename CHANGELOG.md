@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.4.1
+- Includes the 0.4.0 changes below (0.4.0 itself never shipped because of a build error).
 - Raven no longer pops up when a USB drive is plugged in. Open it yourself when you want it; drives plugged in while it's open still show up right away.
 
 ## 0.4.0

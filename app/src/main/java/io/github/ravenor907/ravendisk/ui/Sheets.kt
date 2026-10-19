@@ -280,6 +280,7 @@ fun PlanSheet(@Suppress("UNUSED_PARAMETER") m: AppModel, p: Planner, kind: Sheet
             SheetButtons("Add to plan", p.problem(o), danger = true, onClose = onClose) { onAdd(o) }
         }
 
+        SheetKind.QuickFormat -> {} // shown by QuickFormatSheet
         SheetKind.NewTable -> Sheet("New partition table", onClose) {
             var kindPick by remember { mutableStateOf(TableKind.GPT) }
             Banner("A new partition table replaces the current one. Every partition on the drive, and the data in them, will be gone.", Tone.DANGER)
