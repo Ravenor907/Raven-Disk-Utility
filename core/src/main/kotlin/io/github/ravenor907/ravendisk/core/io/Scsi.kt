@@ -368,8 +368,9 @@ class ScsiDisk(private val bot: BulkOnly) : BlockDevice {
             recover(attempt)
         }
         throw IOException(
-            "The USB connection kept failing while trying to $what. Try another cable, adapter or port, " +
-                "or power the drive separately.",
+            "The USB connection to the drive kept failing while trying to $what. Try a different USB-C adapter " +
+                "or port, plug the phone into a charger (some phones can't power some drives), power the drive " +
+                "separately, or use another drive.",
             last,
         )
     }
@@ -536,7 +537,7 @@ class ScsiDisk(private val bot: BulkOnly) : BlockDevice {
     companion object {
         val COMMAND_LADDER = listOf(1 shl 20, 256 shl 10, 120 shl 10, 64 shl 10, 16 shl 10, 4 shl 10)
         const val MIN_TRANSFER = 16 * 1024
-        const val MAX_ATTEMPTS = 6
+        const val MAX_ATTEMPTS = 8
         const val READ10 = 0x28
         const val WRITE10 = 0x2A
         const val READ16 = 0x88
