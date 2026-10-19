@@ -2,9 +2,9 @@
 # Makes filesystem images with the real Linux tools, plus expect.tsv with what blkid says about
 # each one (image, partition or 0, TYPE, LABEL, UUID). RealToolsTest checks that the app's reader
 # agrees. Tools that aren't installed are skipped, so this also runs on a dev machine.
-set -euo pipefail
+set -Eeuo pipefail
 # The job log isn't always easy to reach, so every failure also becomes an annotation.
-trap 'echo "::error title=make-fixtures line $LINENO::$BASH_COMMAND failed"' ERR
+trap 'echo "::error title=make-fixtures line $LINENO (${FUNCNAME[0]:-main})::$BASH_COMMAND failed"' ERR
 out=${1:?usage: make-fixtures.sh DIR}
 mkdir -p "$out"
 cd "$out"
