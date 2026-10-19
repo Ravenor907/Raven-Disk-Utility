@@ -20,34 +20,35 @@ shot() { # name demo wait
   fi
 }
 shot launch "" 4
-shot dashboard dashboard 5
-shot device device 5
-shot flash flash 5
-shot hdd hdd 5
-shot create create 5
-shot format format 5
-shot erase erase 5
-shot review review 5
-shot review-table review-table 5
-shot running run 4
-shot done done 9
-shot capabilities capabilities 4
-shot log log 4
+shot dashboard dashboard 11
+shot device device 11
+shot flash flash 11
+shot hdd hdd 11
+shot create create 11
+shot format format 11
+shot erase erase 11
+shot review review 11
+shot review-table review-table 11
+shot running run 10
+shot done done 15
+shot capabilities capabilities 10
+shot log log 10
 # Scroll the device workspace to the actions and health sections.
 adb shell am force-stop $PKG
 adb shell am start -W -n $PKG/.MainActivity --es demo hdd >/dev/null
-sleep 5
+sleep 11
 adb shell input swipe 500 1800 500 400 300
 sleep 2
 adb exec-out screencap -p > screens/hdd-scrolled.png
 # Landscape, like a handheld or tablet.
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 1
-shot device-landscape device 6
+shot device-landscape device 12
 adb shell settings put system user_rotation 0
 if adb logcat -d | grep -q "FATAL EXCEPTION"; then
   msg=$(adb logcat -d | grep -A15 "FATAL EXCEPTION" | head -30 | sed ':a;N;$!ba;s/\n/%0A/g')
   echo "::error title=Crash in logcat::$msg"
   exit 1
 fi
+echo "::notice title=Timings::$(adb logcat -d -s RavenDisk:I | grep -E 'refresh|simulated|run' | tail -12 | sed ':a;N;$!ba;s/\n/%0A/g')"
 echo "All screens rendered without crashing"

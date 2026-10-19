@@ -138,7 +138,9 @@ object Probe {
                 }
                 if (got == bits.size) {
                     var used = 0L
-                    for (k in 0 until clusters.toInt()) if (bits[k ushr 3].toInt() and (1 shl (k and 7)) != 0) used++
+                    val whole = (clusters / 8).toInt()
+                    for (k in 0 until whole) used += Integer.bitCount(bits[k].toInt() and 0xFF)
+                    for (k in whole * 8 until clusters.toInt()) if (bits[k ushr 3].toInt() and (1 shl (k and 7)) != 0) used++
                     free = (clusters - used) * cluster
                 }
             }

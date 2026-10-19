@@ -92,6 +92,10 @@ class DemoSession(private val d: DemoDrive) : DiskSession {
  * unless they say so.
  */
 class Drives(private val context: Context, @Volatile var demo: Boolean) {
+    companion object {
+        const val TAG = "RavenDisk"
+    }
+
     private val usb = UsbBackend(context)
     private val _drives = MutableStateFlow<List<Drive>>(emptyList())
     val drives: StateFlow<List<Drive>> = _drives
@@ -135,6 +139,7 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
 
     /** Re-reads everything. Blocking: call from a background thread. */
     fun refresh(reinspect: Set<String> = emptySet()) {
+        val started = android.os.SystemClock.elapsedRealtime()
         val vols = try {
             AndroidVolumes.list(context)
         } catch (e: Exception) {
@@ -155,9 +160,16 @@ class Drives(private val context: Context, @Volatile var demo: Boolean) {
             }
             forced.retainAll(names)
             for (d in present) out.addAll(usbDrives(d, vols, reinspect))
-            if (demo) out.addAll(demoDrives.map { demoDrive(it, reinspect) })
+            if (demo) {
+                val t = android.os.SystemClock.elapsedRealtime()
+                val built = demoDrives
+                val t2 = android.os.SystemClock.elapsedRealtime()
+                out.addAll(built.map { demoDrive(it, reinspect) })
+                android.util.Log.i(TAG, "simulated drives: built in ${t2 - t} ms, inspected in ${android.os.SystemClock.elapsedRealtime() - t2} ms")
+            }
         }
         _drives.value = out
+        android.util.Log.i(TAG, "refresh: ${out.size} drive(s), ${vols.size} volume(s) in ${android.os.SystemClock.elapsedRealtime() - started} ms")
     }
 
     private fun usbDrives(d: UsbDevice, vols: List<AndroidVolume>, reinspect: Set<String>): List<Drive> {

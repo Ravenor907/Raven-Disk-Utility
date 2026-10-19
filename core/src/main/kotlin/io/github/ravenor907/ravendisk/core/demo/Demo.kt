@@ -60,7 +60,7 @@ object Demo {
         val efi = Partition(1, mib(1), mib(513) - 1, PartitionTypes.EFI_SYSTEM, Guid.random(rng), "EFI system")
         val swap = Partition(2, mib(513), mib(513 + 8192) - 1, PartitionTypes.LINUX_SWAP, Guid.random(rng), "swap")
         val root = Partition(3, mib(8705), mib(8705 + 131072) - 1, PartitionTypes.LINUX_FS, Guid.random(rng), "root")
-        val games = Partition(4, mib(139777), mib(139777 + 600_000) - 1, PartitionTypes.MS_BASIC_DATA, Guid.random(rng), "games")
+        val games = Partition(4, mib(139777), mib(139777 + 240_000) - 1, PartitionTypes.MS_BASIC_DATA, Guid.random(rng), "games")
         t = t.copy(partitions = listOf(efi, swap, root, games))
         Fat32.format(d, efi.firstLba, efi.sectors, "EFI", serial = 0x0C1A2B3C)
         Swap.format(d, swap.firstLba, swap.sectors, "swap", Guid.random(rng))

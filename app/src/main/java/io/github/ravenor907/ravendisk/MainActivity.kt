@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
     private suspend fun startDemo(demo: String) {
         // Wait for the first refresh to list the simulated drives.
         var waited = 0
-        while (model.drives.drive("demo:ssd") == null && waited++ < 100) delay(100)
+        while (model.drives.drive("demo:ssd") == null && waited++ < 300) delay(100)
         val ssd = "demo:ssd"
         when (demo) {
             "device" -> model.push(Screen.Device(ssd))

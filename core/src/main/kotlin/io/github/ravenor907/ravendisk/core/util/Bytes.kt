@@ -22,8 +22,21 @@ fun ByteArray.regionEquals(at: Int, other: ByteArray): Boolean {
     return true
 }
 
+/** Whether bytes [from, to) are all zero. Checks eight bytes at a time; this runs over megabytes. */
 fun ByteArray.isAllZero(from: Int = 0, to: Int = size): Boolean {
-    for (i in from until to) if (this[i].toInt() != 0) return false
+    var i = from
+    if (to - from >= 16) {
+        val bb = java.nio.ByteBuffer.wrap(this)
+        val end8 = from + (to - from) / 8 * 8
+        while (i < end8) {
+            if (bb.getLong(i) != 0L) return false
+            i += 8
+        }
+    }
+    while (i < to) {
+        if (this[i].toInt() != 0) return false
+        i++
+    }
     return true
 }
 

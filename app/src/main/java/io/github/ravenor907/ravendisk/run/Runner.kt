@@ -66,6 +66,7 @@ object Runner {
             log("Couldn't start the background service (${e.javaClass.simpleName}); keep the app open")
         }
         scope.launch {
+            val t0 = android.os.SystemClock.elapsedRealtime()
             val result = Executor(session, planner, object : RunListener {
                 override fun step(index: Int, count: Int, title: String) {
                     _state.value = _state.value?.copy(stepIndex = index, stepCount = count, stepTitle = title, done = 0, total = 0)
@@ -81,6 +82,7 @@ object Runner {
 
                 override fun log(line: String) = this@Runner.log(line)
             }, journal) { cancel }.run()
+            android.util.Log.i("RavenDisk", "run finished in ${android.os.SystemClock.elapsedRealtime() - t0} ms: ${result.outcome}")
             _state.value = _state.value?.copy(result = result, stopping = false)
             onDone(result)
         }
