@@ -153,8 +153,7 @@ jobs:
           tag="v$v"
           if gh release view "$tag" -R "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release $tag already exists, nothing to publish"
-            exit 0
-          fi
+          else
           pre=""
           case "$v" in 0.*) pre="--prerelease" ;; esac
           # Notes: this version's section of CHANGELOG.md, plus install steps.
@@ -162,3 +161,12 @@ jobs:
           printf '\n**Install:** download the APK below on your phone and open it. Plug in the drive with a USB-C adapter or hub and allow access when Android asks.\n' >> notes.md
           gh release create "$tag" "RavenDiskUtility-$v.apk" -R "${{ github.repository }}" --target "$GITHUB_SHA" $pre \
             --title "Raven Disk Utility $v" --notes-file notes.md
+          fi
+          # Keep every release's notes in step with CHANGELOG.md.
+          for t in $(gh release list -R "${{ github.repository }}" --limit 100 --json tagName -q '.[].tagName'); do
+            ver=${t#v}
+            awk -v v="$ver" '/^## /{p=($2==v)} p && !/^## /' CHANGELOG.md > n.md
+            [ -s n.md ] || continue
+            printf '\n**Install:** download the APK below on your phone and open it. Plug in the drive with a USB-C adapter or hub and allow access when Android asks.\n' >> n.md
+            gh release edit "$t" -R "${{ github.repository }}" --notes-file n.md
+          done
