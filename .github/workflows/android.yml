@@ -83,6 +83,8 @@ jobs:
         run: ci/check-exports.sh "$RUNNER_TEMP/export"
 
   screens:
+    permissions:
+      contents: write
     # Boots an emulator, opens every screen on simulated drives (including a real run of a plan),
     # screenshots them and fails on any crash. Android 14 and Android 16 (the target).
     needs: build
@@ -118,6 +120,16 @@ jobs:
           name: screens-${{ matrix.api }}
           path: screens/
           if-no-files-found: ignore
+      - name: Publish screenshots to a branch (easy to fetch and review)
+        if: always() && github.event_name == 'push'
+        run: |
+          [ -d screens ] || exit 0
+          branch="ci-screens/api-${{ matrix.api }}"
+          cd screens
+          git init -q && git checkout -q -b "$branch"
+          git config user.name "github-actions[bot]" && git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add . && git commit -q -m "Screenshots from ${GITHUB_SHA::7} (API ${{ matrix.api }})"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$branch"
 
   release:
     # Publishes when main carries a versionName that has no release yet, so bumping versionName
