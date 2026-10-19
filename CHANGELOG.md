@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.1
+- Raven no longer pops up when a USB drive is plugged in. Open it yourself when you want it; drives plugged in while it's open still show up right away.
+
 ## 0.4.0
 - **Format drive** sits at the top of every drive: pick exFAT, FAT32 or ext4, add a name, review, done.
 - Tapping a partition shows a big **Format this partition** button first.
