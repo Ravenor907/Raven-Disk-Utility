@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- **Write an image.** Pick an .iso, .img or .raw (or compressed .xz, .gz, .bz2, .zip) and Raven writes it to the drive, then reads every byte back to confirm. DVD-only ISOs and unknown files get a warning first.
+- **Speed and capacity test** with a live graph: write and read speed as it happens, with average, peak and low. Shows when a stick slows down after its fast cache fills, and checks markers up to the last megabyte to catch fake capacity. **Format drive** is right there afterwards.
+- Faster USB: big reads and writes now keep several transfers in flight, and fall back to one at a time on the first hiccup.
+- Sturdier USB recovery: a write that chokes resets the drive and retries in smaller pieces instead of hanging.
+- Raven now shares one drive engine with Handheld Forge, so formatting, image writing and the speed test behave the same in both.
+
 ## 0.4.3
 
 - No more typing ERASE. Ticking the confirmation box on the review screen is enough, even when the whole drive is wiped.

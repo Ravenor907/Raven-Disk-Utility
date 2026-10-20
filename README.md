@@ -9,7 +9,7 @@
 # Raven Disk Utility
 
 A disk utility for your Android phone. Plug in a USB stick, SSD, hard drive or card reader and
-format it, partition it or check its health, no PC needed.
+format it, partition it, write an ISO to it or test its real speed, no PC needed.
 
 External drives only: it never touches your phone's own storage and never needs root. No pretend
 buttons either: if something can't be done, the app says why.
@@ -23,12 +23,19 @@ buttons either: if something can't be done, the app says why.
   everything else.
 - **Reclaim a used boot stick.** Old installer layouts, leftover partitions, odd tables: start fresh
   in one step.
+- **Make a bootable USB from an ISO.** Linux installers, handheld OS images, rescue disks.
+- **Catch a fake or failing stick.** The speed test graphs real write and read speed live and proves
+  the drive holds what it claims.
 - **Check an external hard drive before trusting it.** SMART health through USB-SATA enclosures.
 - **Real partition work when you need it.** GPT or MBR, create, delete, resize, rename, types, flags.
 
 ## What it does
 
 - **Format drive**, right at the top: exFAT, FAT32 or ext4, an optional name, then review.
+- **Write an image:** .iso, .img, .raw, or compressed .xz, .gz, .bz2, .zip, unpacked on the fly.
+  Every byte is read back and compared afterwards.
+- **Speed and capacity test** with a live graph of write and read speed as it happens, slowdowns
+  when a stick's fast cache fills, and markers to the last megabyte to expose fake capacity.
 - **Unmount from Android** with one tap, so a drive Android is using can be formatted right away.
 - **Format, rename or delete a single partition** by tapping it on the partition map.
 - **See everything:** partition table, partitions, filesystems, labels, sizes, alignment, free space,
@@ -51,7 +58,7 @@ Formats are written by Raven itself and checked on every build against the real 
 2. Plug in the drive with a USB-C adapter or hub.
 3. Tap the drive in Raven and allow access when Android asks.
 
-If Android already mounted the drive, eject it in Settings first (or tap **Open anyway**).
+If Android already mounted the drive, tap **Unmount and open**.
 
 Want to look around first? **About → Show simulated drives** gives you three made-up drives in
 memory to try everything on.
